@@ -1,3 +1,9 @@
+## Windows CI and native WPF
+
+This fork supports .NET Core 3.1 and .NET 6 for WinForms and adds an independent native WPF docking library, sample and tests. See [native WPF usage and compatibility](docs/native-wpf.md) for setup, API examples and current scope.
+
+The [Windows build and tests workflow](.github/workflows/main.yml) builds the full solution, runs legacy and modern WinForms tests, and exercises native WPF on both requested runtimes. Download test reports, packages, screenshots and the WPF sample from its Actions artifacts.
+
 DockPanel Suite
 ===============
 

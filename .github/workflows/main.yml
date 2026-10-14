@@ -1,33 +1,96 @@
-# This is a basic workflow to help you get started with Actions
+name: Windows build and tests
 
-name: CI
-
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
 on:
   push:
-    branches: [ master ]
+    branches: [master, 'feature/**']
   pull_request:
-    branches: [ master ]
+    branches: [master]
+  workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
+
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: windows-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+  modern:
+    name: Desktop tests (${{ matrix.framework }})
+    runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [netcoreapp3.1, net6.0-windows]
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            3.1.426
+            6.0.428
+      - name: Build native WPF sample
+        run: dotnet build WpfSample/WpfSample.csproj -c Release -f ${{ matrix.framework }} -p:TargetFrameworks=${{ matrix.framework }}
+      - name: Test WinForms on the requested runtime
+        run: dotnet test Tests.Modern/Tests.Modern.csproj -c Release -f ${{ matrix.framework }} -p:TargetFrameworks=${{ matrix.framework }} --logger trx --results-directory artifacts/tests/winforms
+      - name: Test native WPF on the requested runtime
+        run: dotnet test WpfTests/WpfTests.csproj -c Release -f ${{ matrix.framework }} -p:TargetFrameworks=${{ matrix.framework }} --logger trx --results-directory artifacts/tests/wpf
+      - name: Launch WPF sample and capture a screenshot
+        shell: pwsh
+        run: |
+          $env:DPS_SMOKE_OUTPUT = Join-Path $PWD 'artifacts/smoke'
+          $app = Join-Path $PWD 'WpfSample/bin/Release/${{ matrix.framework }}/WpfSample.exe'
+          $process = Start-Process -FilePath $app -ArgumentList '--smoke' -PassThru
+          if (-not $process.WaitForExit(60000)) {
+            $process.Kill()
+            throw 'WPF smoke test timed out.'
+          }
+          if ($process.ExitCode -ne 0) { throw "WPF sample exited with $($process.ExitCode)." }
+          if (-not (Test-Path "$env:DPS_SMOKE_OUTPUT/wpf-sample.png")) { throw 'Smoke screenshot missing.' }
+      - name: Upload tests, screenshot and runnable sample
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.framework }}
+          path: |
+            artifacts/**
+            WpfSample/bin/Release/${{ matrix.framework }}/**
+          if-no-files-found: warn
 
-    - name: Generate NuGet packages
-      shell: cmd
-      run: call dist.all.bat
-    
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v2-preview
-      with:
-        name: packages
-        path: WinFormsUI\bin\Release\*.nupkg
+  compatibility:
+    name: Full solution and .NET Framework regression tests
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            3.1.426
+            6.0.428
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build all WinForms targets, themes, samples and WPF projects
+        run: msbuild WinFormsUI.Docking.sln /restore /m /p:Configuration=Release
+      - name: Run the original three test suites
+        shell: pwsh
+        run: |
+          foreach ($project in @('Tests', 'Tests2', 'Tests3')) {
+            dotnet test "$project/$project.csproj" -c Release --no-build --logger trx --results-directory "artifacts/tests/$project"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Pack native WPF library
+        run: dotnet pack WpfUI/WpfUI.csproj -c Release --no-build -o artifacts/packages
+      - name: Upload packages and original test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-packages
+          path: |
+            artifacts/**
+            WinFormsUI/bin/Release/*.nupkg
+          if-no-files-found: warn

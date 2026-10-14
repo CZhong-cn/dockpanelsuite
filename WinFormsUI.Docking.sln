@@ -29,12 +29,36 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Themes", "Themes", "{91DA87
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ThemeVS2005", "WinFormsUI\ThemeVS2005.csproj", "{B51EC09A-F8BE-4B5A-BD07-0F4489075A00}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WpfUI", "WpfUI\WpfUI.csproj", "{53255449-BC1A-56DD-90EF-932C0DA25C54}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WpfSample", "WpfSample\WpfSample.csproj", "{5D54E39E-6230-5E77-AC6A-0F597775C03F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WpfTests", "WpfTests\WpfTests.csproj", "{03B299C1-A8CC-565D-8FD7-8284F3624C7D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tests.Modern", "Tests.Modern\Tests.Modern.csproj", "{6E1CCFA0-31F2-5108-AC55-44B5CBDCBED4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{53255449-BC1A-56DD-90EF-932C0DA25C54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53255449-BC1A-56DD-90EF-932C0DA25C54}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53255449-BC1A-56DD-90EF-932C0DA25C54}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53255449-BC1A-56DD-90EF-932C0DA25C54}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D54E39E-6230-5E77-AC6A-0F597775C03F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D54E39E-6230-5E77-AC6A-0F597775C03F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D54E39E-6230-5E77-AC6A-0F597775C03F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D54E39E-6230-5E77-AC6A-0F597775C03F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03B299C1-A8CC-565D-8FD7-8284F3624C7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03B299C1-A8CC-565D-8FD7-8284F3624C7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03B299C1-A8CC-565D-8FD7-8284F3624C7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03B299C1-A8CC-565D-8FD7-8284F3624C7D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E1CCFA0-31F2-5108-AC55-44B5CBDCBED4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E1CCFA0-31F2-5108-AC55-44B5CBDCBED4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E1CCFA0-31F2-5108-AC55-44B5CBDCBED4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E1CCFA0-31F2-5108-AC55-44B5CBDCBED4}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C75532C4-765B-418E-B09B-46D36B2ABDB1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C75532C4-765B-418E-B09B-46D36B2ABDB1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C75532C4-765B-418E-B09B-46D36B2ABDB1}.Release|Any CPU.ActiveCfg = Release|Any CPU

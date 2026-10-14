@@ -1,0 +1,16 @@
+<Window x:Class="DockPanelSuite.Wpf.Sample.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:docking="clr-namespace:DockPanelSuite.Wpf;assembly=WpfUI"
+        Title="DockPanel Suite · Native WPF" Width="1100" Height="720">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Background="#EDF1F6">
+      <Button Content="New document" Click="NewDocument" Margin="8" Padding="10,5" />
+      <Button Content="Save layout" Click="SaveLayout" Margin="8" Padding="10,5" />
+      <Button Content="Restore layout" Click="RestoreLayout" Margin="8" Padding="10,5" />
+      <Button Content="Show hidden panes" Click="ShowHidden" Margin="8" Padding="10,5" />
+    </StackPanel>
+    <TextBlock DockPanel.Dock="Bottom" Text="Drag tab titles to an edge or the center. Right-click a title to float or dock. × hides a pane." Padding="10" />
+    <docking:DockWorkspace x:Name="Docking" />
+  </DockPanel>
+</Window>
