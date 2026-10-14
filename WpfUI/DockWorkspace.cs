@@ -61,6 +61,8 @@ namespace DockPanelSuite.Wpf
             RequireItem(item);
             ValidateState(state);
             CaptureGeometry();
+            foreach (var selection in _selected.Where(pair => pair.Value == item.Id && pair.Key != state).ToArray())
+                _selected.Remove(selection.Key);
             item.SetState(state);
             if (state != DockState.Hidden)
             {
@@ -108,7 +110,8 @@ namespace DockPanelSuite.Wpf
             {
                 LeftWidth = _sizes.LeftWidth, RightWidth = _sizes.RightWidth,
                 TopHeight = _sizes.TopHeight, BottomHeight = _sizes.BottomHeight,
-                SelectedIds = _selected.Values.Distinct().ToList(),
+                SelectedIds = _selected.Where(pair => pair.Key != DockState.Float && pair.Key != DockState.Hidden)
+                    .Select(pair => pair.Value).Distinct().ToList(),
                 Items = _items.Select(item => new DockPlacement
                 {
                     Id = item.Id, State = item.State, LastDockState = item.LastDockState,

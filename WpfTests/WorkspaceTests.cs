@@ -133,6 +133,9 @@ namespace DockPanelSuite.Wpf.Tests
         {
             var second = new DockItem("second", "Second", new TextBox());
             _workspace.Add(second);
+            _workspace.Float(_item);
+            _workspace.Show(_item, DockState.Document);
+            _workspace.Show(second, DockState.Document);
             var saved = Snapshot();
             _workspace.Show(_item, DockState.Document);
             Restore(saved);
