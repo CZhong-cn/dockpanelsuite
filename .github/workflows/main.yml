@@ -19,6 +19,24 @@ env:
   DOTNET_NOLOGO: true
 
 jobs:
+  portable:
+    name: Portable WPF layout logic (Linux)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.428
+      - name: Test shared drop-target geometry
+        run: dotnet test WpfLogicTests/WpfLogicTests.csproj -c Release --logger trx --results-directory artifacts/portable
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: portable-test-results
+          path: artifacts/portable/**
+          if-no-files-found: warn
+
   modern:
     name: Desktop tests (${{ matrix.framework }})
     runs-on: windows-2022
@@ -51,7 +69,9 @@ jobs:
             throw 'WPF smoke test timed out.'
           }
           if ($process.ExitCode -ne 0) { throw "WPF sample exited with $($process.ExitCode)." }
-          if (-not (Test-Path "$env:DPS_SMOKE_OUTPUT/wpf-sample.png")) { throw 'Smoke screenshot missing.' }
+          foreach ($image in @('wpf-sample.png', 'wpf-sample-light.png', 'wpf-sample-dark.png', 'wpf-auto-hide.png')) {
+            if (-not (Test-Path "$env:DPS_SMOKE_OUTPUT/$image")) { throw "Smoke screenshot missing: $image" }
+          }
       - name: Upload tests, screenshot and runnable sample
         if: always()
         uses: actions/upload-artifact@v4

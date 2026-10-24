@@ -4,8 +4,6 @@ using System.Windows;
 
 namespace DockPanelSuite.Wpf
 {
-    public enum DockState { Document, Left, Right, Top, Bottom, Float, Hidden }
-
     /// <summary>A persistent identity and content instance owned by one workspace.</summary>
     public sealed class DockItem : INotifyPropertyChanged
     {
@@ -41,7 +39,7 @@ namespace DockPanelSuite.Wpf
         internal void SetState(DockState state)
         {
             _state = state;
-            if (state != DockState.Hidden && state != DockState.Float) LastDockState = state;
+            if (state != DockState.Hidden && state != DockState.Float && state != DockState.AutoHide) LastDockState = state;
             Notify(nameof(State));
         }
         public event PropertyChangedEventHandler PropertyChanged;

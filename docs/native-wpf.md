@@ -1,52 +1,96 @@
-# Native WPF docking (0.1)
+# Native WPF docking (0.2)
 
-This branch adds a separate native WPF library targeting `netcoreapp3.1` and
-`net6.0-windows`. The existing WinForms library and every theme now also target
-`net6.0-windows`, while retaining `netcoreapp3.1`, `net35`, and `net40`.
+An independent native WPF library for `netcoreapp3.1` and `net6.0-windows`.
+WinForms core and all themes continue to retain the existing targets. WPF uses
+`DockPanelSuite.Wpf`, assembly `WpfUI`, package `DockPanelSuite.Wpf`.
 
-## WPF API
+## What's in 0.2
 
-Add a project reference to `WpfUI/WpfUI.csproj`. The namespace is
-`DockPanelSuite.Wpf`; the assembly is `WpfUI` and the NuGet package ID is
-`DockPanelSuite.Wpf`. No WinForms reference or interop host is used.
+| Capability | Behavior |
+| --- | --- |
+| Docking | Document tabs, four tool-pane regions, resize splitters with minimum sizes |
+| Drag/drop | Shared hit testing for the translucent preview and final dock region |
+| Tab order | Drop a title before another title, including across dock regions |
+| Floating | Owned native WPF windows; double-click a title to float or redock |
+| Auto-hide | Four edge rails, click-to-open flyouts, pin/unpin, click-outside or Escape dismissal |
+| Themes | Live light/dark palettes, themed docking chrome, opt-in content styles |
+| Keyboard | Ctrl+Tab / Ctrl+Shift+Tab cycles visible documents; Ctrl+W / Ctrl+F4 hides the active item |
+| Application integration | `ActiveItemChanged`, cancelable `ItemClosing`, content preserved while moving |
+| Persistence | Version 2 XML stores pane state, geometry, tab order, selections and active item; version 1 remains readable |
+
+The sample is a Chinese industrial-vision-style workbench: native vector preview,
+editable JSON document, project tree, properties, output, and auto-hidden history.
+All measurement values and logs are explicitly sample data. There is no hardware
+connection or image-processing implementation in this docking demo.
+
+## Add a workspace
+
+Reference `WpfUI/WpfUI.csproj`:
 
 ```xml
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:docking="clr-namespace:DockPanelSuite.Wpf;assembly=WpfUI">
-  <docking:DockWorkspace x:Name="Workspace" />
+  <docking:DockWorkspace x:Name="Workspace" Theme="Dark" />
 </Window>
 ```
 
 ```csharp
 var editor = new DockItem("editor", "Editor", new TextBox { AcceptsReturn = true });
-Workspace.Add(editor); // document tab
-Workspace.Add(new DockItem("tools", "Tools", new TreeView()), DockState.Left);
+var tool = new DockItem("tools", "Tools", new TreeView());
+Workspace.Add(editor);
+Workspace.Add(tool, DockState.Left);
+Workspace.AutoHide(tool);           // returns to Left when pinned
+Workspace.OpenAutoHide(tool);       // expands without changing its AutoHide state
+Workspace.DismissAutoHide();
+Workspace.Pin(tool);
 Workspace.Float(editor);
 Workspace.Show(editor, DockState.Document);
-Workspace.Hide(editor); // retains the content instance
-Workspace.Show(editor); // returns to its previous dock region
+Workspace.Activate(editor);
+Workspace.Hide(editor);             // checks CanClose and ItemClosing
+Workspace.Show(editor);             // returns to its last dock region
 ```
 
-`Content` can be a WPF control or a view model resolved by an implicit WPF
-`DataTemplate`. `Title` and `CanClose` implement change notifications. Items have
-stable, unique IDs and one owning workspace. Content instances cannot be shared
-between items. Use the owning UI dispatcher for every operation. `Items` is
-read-only; use `Add` and `Remove`. Applications own the lifetime of content and
-must dispose any resources when they permanently remove an item.
+`AutoHide(item, edge)` assigns an explicit tool edge. `AutoHide(item)` requires
+an existing tool edge; documents cannot auto-hide without choosing an edge.
+`MoveBefore(item, before)` reorders items within a region. Moving an item to a
+new region uses `Show` first. A header drop does both operations.
 
-## Implemented interactions
+Items have stable unique IDs, immutable content, and one owning workspace. All
+access belongs on the workspace's UI dispatcher. `Items` is read-only; use `Add`
+and `Remove`. `Title` and `CanClose` notify property changes. Content may be a WPF
+control or a view model resolved by an implicit `DataTemplate`. Applications own
+content resource disposal after permanent removal.
 
-- Center document tabs and tabbed tool panes at all four edges.
-- Native WPF grid splitters to resize the edge panes.
-- Drag tab titles to an outer edge or the center to move an item.
-- Right-click a title to select a dock region or float the item.
-- Native owned WPF floating windows, including size/position persistence.
-- Close buttons hide items; `CanClose = false` blocks user closing.
-- Unloading the workspace closes floating windows; loading it restores them.
-- Repeated docking/floating keeps the same content/control instance.
+```csharp
+Workspace.ItemClosing += (sender, e) =>
+{
+    if (e.Item.Id == "editor" && HasUnsavedChanges()) e.Cancel = true;
+};
+Workspace.ActiveItemChanged += (sender, e) => UpdateInspector(Workspace.ActiveItem);
+```
 
-The sample provides New document, Save/Restore layout, and Show hidden panes.
-It uses an editable WPF `TextBox`, a `TreeView`, properties and output panes.
+User-facing close buttons, close shortcuts and the floating-window close command
+honor cancellation. Explicit `Show(item, DockState.Hidden)` is a programmatic
+state change and bypasses closing policy. `Remove` permanently unregisters an item.
+
+## Theme integration
+
+```csharp
+Workspace.Theme = DockTheme.Dark;
+var resources = DockThemeResources.Create(DockTheme.Dark);
+window.Resources.MergedDictionaries.Add(resources);
+editorControl.SetResourceReference(FrameworkElement.StyleProperty, "Dps.TextBox");
+```
+
+The docking theme styles the chrome, not arbitrary application content. Consumers
+can opt into `Dps.TextBox`, `Dps.TreeView`, `Dps.Button`, and `Dps.IconButton`.
+Other keys include `Dps.TabControl`, `Dps.TabItem` and `Dps.Menu`.
+
+Palette brush keys: `Dps.Background`, `Dps.Surface`, `Dps.Header`, `Dps.Foreground`,
+`Dps.Muted`, `Dps.Border`, `Dps.Hover`, `Dps.Accent`, `Dps.Selected`, `Dps.Preview`,
+and `Dps.Success`. Override these in workspace resources to match your app.
+Theme changes preserve documents and existing floating-window instances. Context
+menus and floating chrome share the live workspace palette.
 
 ## Layout snapshots
 
@@ -55,19 +99,24 @@ using (var stream = File.Create("layout.xml")) Workspace.SaveLayout(stream);
 using (var stream = File.OpenRead("layout.xml")) Workspace.LoadLayout(stream);
 ```
 
-Register the application's items before restoring. Snapshots store identities,
-states, selected tabs, pane sizes, and floating geometry; they do not serialize
-controls, arbitrary types, document text, or view models. Unknown IDs are skipped.
-Registered items missing from the snapshot are hidden. Invalid snapshots are
-validated before any live states are changed. Caller-owned streams stay open.
-The WPF layout schema is independent of the WinForms XML schema.
+Register application items before restoring. Snapshots serialize identities and
+layout metadata, never controls, view models, document text, or arbitrary types.
+Unknown IDs are skipped. Registered items absent from a snapshot become hidden.
+Invalid snapshots are validated before live states change. Caller streams stay
+open. Auto-hide flyouts restore collapsed, and the most recent active visible
+pane is restored. Theme is an application preference outside the layout snapshot.
 
-## Windows build and test
+WPF XML is independent of WinForms XML. Version 2 readers accept version 1
+snapshots. Old readers do not support the new auto-hide state. The sample's reset
+button restores its initial snapshot, including tab order and tool placement;
+new documents are retained as hidden items and can be found through the pane menu.
 
-Install .NET SDKs 6.0.428 and 3.1.426 (the latter supplies the 3.1 desktop runtime).
-`global.json` selects the .NET 6 SDK for builds. For the full legacy solution,
-use Visual Studio 2022 MSBuild. Framework reference assemblies are restored from
-NuGet, including the older .NET Framework targets.
+## Windows builds and tests
+
+The repository pins the .NET 6 SDK with `latestPatch` roll-forward. CI installs
+6.0.428 and 3.1.426, including the 3.1 desktop runtime. Use Visual Studio 2022
+MSBuild for the full legacy solution. Required framework reference assemblies
+and desktop resource dependencies restore from NuGet.
 
 ```powershell
 msbuild WinFormsUI.Docking.sln /restore /m /p:Configuration=Release
@@ -75,37 +124,39 @@ dotnet test WpfTests/WpfTests.csproj -c Release -f net6.0-windows
 dotnet test WpfTests/WpfTests.csproj -c Release -f netcoreapp3.1
 dotnet test Tests.Modern/Tests.Modern.csproj -c Release -f net6.0-windows
 dotnet test Tests.Modern/Tests.Modern.csproj -c Release -f netcoreapp3.1
-dotnet test Tests/Tests.csproj -c Release --no-build
-dotnet test Tests2/Tests2.csproj -c Release --no-build
-dotnet test Tests3/Tests3.csproj -c Release --no-build
 dotnet run --project WpfSample/WpfSample.csproj -f net6.0-windows
 ```
 
-The `Windows build and tests` GitHub Actions workflow runs on `windows-2022`.
-It builds the complete solution, runs the original framework configuration
-tests, and tests both desktop runtimes separately. The modern WinForms tests
-reuse the existing default/registry/environment and theme tests. WPF tests run
-in STA and exercise real native floating windows with dispatcher pumping.
+The original `Tests`, `Tests2`, and `Tests3` suites remain in the compatibility
+job. WPF tests run in STA and exercise actual floating-window lifecycle,
+auto-hide transitions, order persistence, cancellation and live theme changes.
+The sample's `--smoke` path produces `wpf-sample-light.png`,
+`wpf-sample-dark.png`, `wpf-auto-hide.png`, and the compatibility filename
+`wpf-sample.png`. Smoke errors are also saved to `smoke-error.txt`.
 
-Each modern job also launches the sample with `--smoke`, moves a document out
-and back, saves/restores its layout, and renders `wpf-sample.png`. Artifacts include
-TRX results, screenshots and the sample binaries. The compatibility job uploads
-WinForms/theme packages and the native WPF package. There is no signing or
-publishing to a package registry in CI.
+## Linux-testable logic
 
-## Compatibility boundary
+`DockDropTargetResolver` has no WPF/runtime dependency. `WpfLogicTests` links the
+same production geometry source and runs on Linux or Windows:
 
-This is the initial native WPF implementation, not a source-compatible port of
-`WeifenLuo.WinFormsUI.Docking`. WPF callers use `DockWorkspace` and `DockItem`;
-WinForms callers continue to use the existing `DockPanel` and `DockContent`.
-The old WinForms Visual Studio theme classes do not style WPF controls.
+```sh
+dotnet test WpfLogicTests/WpfLogicTests.csproj -c Release
+```
 
-The first WPF version has one tab group per region. Arbitrary nested pane splits,
-multiple floating tab groups, tab reorder, auto-hide flyouts, animated docking
-indicators, legacy MDI, and complete old-theme parity are not implemented.
-Drag/drop uses region hit testing without a preview overlay. UI tests verify
-programmatic transitions; manual mouse-drag, keyboard accessibility and
-multi-monitor/DPI testing remain necessary for a production desktop release.
+CI has a separate Ubuntu job for these tests. Local verification for this update:
+25 geometry cases passed on Linux using .NET 6 and NUnitLite. Native WPF and WPF
+regression sources compiled against the official 3.1 and 6 reference assemblies.
+XAML/project XML and workflow YAML parse successfully. These checks do not verify
+BAML generation, a full solution build, or Windows UI execution. The GitHub
+repository had no Actions runs at the time this update was prepared; Windows
+results and rendered screenshots still require the Windows workflow to run.
 
-Runtime versions are intentionally those requested by this project, despite
-their being outside Microsoft's current support window.
+## Remaining scope
+
+There is one tab group per region. Arbitrary nested pane trees, multiple-tab
+floating groups, animated docking diamonds, old MDI behavior and exact WinForms
+Visual Studio theme parity are not implemented. Auto-hide flyouts are click based,
+not hover/timer based. Keyboard navigation, real mouse-drag behavior and
+multi-monitor/DPI behavior still require Windows acceptance testing.
+
+The requested runtime versions remain outside Microsoft's current support window.

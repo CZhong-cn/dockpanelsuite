@@ -4,7 +4,7 @@
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <PackageId>DockPanelSuite.Wpf</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Description>Native WPF docking workspace with document tabs, tool panes and floating windows.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RootNamespace>DockPanelSuite.Wpf</RootNamespace>

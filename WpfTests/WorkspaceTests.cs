@@ -139,7 +139,7 @@ namespace DockPanelSuite.Wpf.Tests
             var saved = Snapshot();
             _workspace.Show(_item, DockState.Document);
             Restore(saved);
-            var tab = ((Grid)_workspace.Content).Children.OfType<TabControl>().Single();
+            var tab = Descendants<TabControl>(_workspace).Single();
             Assert.AreSame(second, ((TabItem)tab.SelectedItem).Tag);
         }
 
@@ -197,6 +197,156 @@ namespace DockPanelSuite.Wpf.Tests
             _host = new Window { Content = _workspace, Width = 800, Height = 600, ShowInTaskbar = false };
             _host.Show();
             Pump();
+        }
+
+        [TestCase(DockState.Left), TestCase(DockState.Right), TestCase(DockState.Top), TestCase(DockState.Bottom)]
+        public void AutoHiddenPaneCanOpenDismissAndPinWithoutLosingContent(DockState edge)
+        {
+            _workspace.AutoHide(_item, edge);
+            Assert.AreEqual(DockState.AutoHide, _item.State);
+            _workspace.OpenAutoHide(_item);
+            Assert.AreSame(_item, _workspace.OpenAutoHideItem);
+            Assert.AreSame(_item, _workspace.ActiveItem);
+            _workspace.DismissAutoHide();
+            Assert.IsNull(_workspace.OpenAutoHideItem);
+            Assert.AreEqual(DockState.AutoHide, _item.State);
+            _workspace.Pin(_item);
+            Assert.AreEqual(edge, _item.State);
+            Assert.AreEqual("keep me", ((TextBox)_item.Content).Text);
+        }
+
+        [Test]
+        public void InvalidAutoHideDoesNotClaimOrRegisterTheItem()
+        {
+            var other = new DockItem("other", "Other", new TextBox());
+            Assert.Throws<ArgumentException>(() => _workspace.Add(other, DockState.AutoHide));
+            Assert.AreEqual(1, _workspace.Items.Count);
+            _workspace.Add(other);
+            Assert.Throws<ArgumentException>(() => _workspace.AutoHide(other));
+            Assert.AreEqual(DockState.Document, other.State);
+        }
+
+        [Test]
+        public void AutoHideAndTabOrderRoundTripThroughLayout()
+        {
+            var second = new DockItem("second", "Second", new TextBox());
+            _workspace.Add(second);
+            var tool = new DockItem("tool", "Tool", new TextBox());
+            _workspace.Add(tool, DockState.Left);
+            _workspace.AutoHide(tool);
+            _workspace.MoveBefore(second, _item);
+            _workspace.Activate(second);
+            var saved = Snapshot();
+            _workspace.Pin(tool);
+            _workspace.MoveBefore(_item, second);
+            Restore(saved);
+            Assert.AreEqual(DockState.AutoHide, tool.State);
+            Assert.AreEqual(DockState.Left, tool.LastDockState);
+            Assert.AreEqual("second", _workspace.Items[0].Id);
+            Assert.AreSame(second, _workspace.ActiveItem);
+            Assert.IsNull(_workspace.OpenAutoHideItem);
+        }
+
+        [Test]
+        public void MoveBeforePreservesRelativeOrderAndRejectsDifferentRegions()
+        {
+            var second = new DockItem("second", "Second", new Button());
+            var third = new DockItem("third", "Third", new Button());
+            _workspace.Add(second); _workspace.Add(third);
+            _workspace.MoveBefore(_item, third);
+            CollectionAssert.AreEqual(new[] { "second", "editor", "third" }, _workspace.Items.Select(item => item.Id));
+            _workspace.MoveBefore(third, second);
+            CollectionAssert.AreEqual(new[] { "third", "second", "editor" }, _workspace.Items.Select(item => item.Id));
+            _workspace.Show(second, DockState.Left);
+            Assert.Throws<ArgumentException>(() => _workspace.MoveBefore(third, second));
+        }
+
+        [Test]
+        public void DocumentCyclingWrapsAndSkipsToolsAndHiddenDocuments()
+        {
+            var second = new DockItem("second", "Second", new TextBox());
+            _workspace.Add(second);
+            _workspace.Add(new DockItem("tool", "Tool", new Button()), DockState.Right);
+            _workspace.Activate(_item);
+            _workspace.ActivateNextDocument(); Assert.AreSame(second, _workspace.ActiveItem);
+            _workspace.ActivateNextDocument(); Assert.AreSame(_item, _workspace.ActiveItem);
+            _workspace.ActivateNextDocument(true); Assert.AreSame(second, _workspace.ActiveItem);
+            _workspace.Hide(second);
+            _workspace.ActivateNextDocument(); Assert.AreSame(_item, _workspace.ActiveItem);
+        }
+
+        [Test]
+        public void CancelableClosingAndActiveItemNotificationsWork()
+        {
+            var second = new DockItem("second", "Second", new Button());
+            _workspace.Add(second);
+            int notifications = 0;
+            _workspace.ActiveItemChanged += (sender, args) => notifications++;
+            EventHandler<DockItemClosingEventArgs> cancel = (sender, args) => args.Cancel = true;
+            _workspace.ItemClosing += cancel;
+            _workspace.Hide(second);
+            Assert.AreEqual(DockState.Document, second.State);
+            _workspace.ItemClosing -= cancel;
+            _workspace.Remove(second);
+            Assert.AreSame(_item, _workspace.ActiveItem);
+            Assert.Greater(notifications, 0);
+        }
+
+        [Test]
+        public void ThemeChangesKeepContentAndOpenFloatingWindows()
+        {
+            ShowHost();
+            _workspace.Float(_item); Pump();
+            var window = _host.OwnedWindows[0];
+            var before = _workspace.FindResource("Dps.Surface");
+            _workspace.Theme = DockTheme.Dark;
+            Assert.AreNotEqual(before, _workspace.FindResource("Dps.Surface"));
+            Assert.AreSame(_workspace.FindResource("Dps.Surface"), window.FindResource("Dps.Surface"));
+            Assert.AreSame(window, _host.OwnedWindows[0]);
+            Assert.AreEqual("keep me", ((TextBox)_item.Content).Text);
+            Assert.IsInstanceOf<Style>(_workspace.FindResource("Dps.TabItem"));
+        }
+
+        [Test]
+        public void LegacyLayoutVersionOneCanStillBeRestored()
+        {
+            var layout = Snapshot(); layout.Version = 1; layout.ActiveId = null;
+            _workspace.Show(_item, DockState.Right);
+            Restore(layout);
+            Assert.AreEqual(DockState.Document, _item.State);
+        }
+
+        [Test]
+        public void FloatingWindowCloseCanBeCanceled()
+        {
+            ShowHost(); _workspace.Float(_item); Pump();
+            EventHandler<DockItemClosingEventArgs> cancel = (sender, args) => args.Cancel = true;
+            _workspace.ItemClosing += cancel;
+            _host.OwnedWindows[0].Close(); Pump();
+            Assert.AreEqual(DockState.Float, _item.State);
+            Assert.AreEqual(1, _host.OwnedWindows.Count);
+            _workspace.ItemClosing -= cancel;
+        }
+
+        [Test]
+        public void KeyboardFocusInPaneContentChangesTheActiveItem()
+        {
+            ShowHost();
+            var tool = new DockItem("tool", "Tool", new TextBox());
+            _workspace.Add(tool, DockState.Right); Pump();
+            System.Windows.Input.Keyboard.Focus((TextBox)_item.Content); Pump();
+            Assert.AreSame(_item, _workspace.ActiveItem);
+            System.Windows.Input.Keyboard.Focus((TextBox)tool.Content); Pump();
+            Assert.AreSame(tool, _workspace.ActiveItem);
+        }
+
+        private static System.Collections.Generic.IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+        {
+            foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+            {
+                if (child is T match) yield return match;
+                foreach (var descendant in Descendants<T>(child)) yield return descendant;
+            }
         }
         private DockLayout Snapshot()
         {

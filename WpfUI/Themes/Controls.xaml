@@ -1,0 +1,92 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style x:Key="Dps.Button" TargetType="Button">
+    <Setter Property="Foreground" Value="{DynamicResource Dps.Foreground}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Dps.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="12,7" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Frame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Frame" Property="Background" Value="{DynamicResource Dps.Hover}" /></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Dps.Accent}" /></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Frame" Property="Background" Value="{DynamicResource Dps.Selected}" /></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="Dps.IconButton" TargetType="Button" BasedOn="{StaticResource Dps.Button}">
+    <Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="5,1" />
+    <Setter Property="MinWidth" Value="24" /><Setter Property="MinHeight" Value="24" />
+  </Style>
+  <Style x:Key="Dps.TabControl" TargetType="TabControl">
+    <Setter Property="Background" Value="{DynamicResource Dps.Surface}" />
+    <Setter Property="Foreground" Value="{DynamicResource Dps.Foreground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Dps.Border}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabControl">
+          <Grid KeyboardNavigation.TabNavigation="Local">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Border Background="{DynamicResource Dps.Header}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0,0,0,1">
+              <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False">
+                <TabPanel IsItemsHost="True" KeyboardNavigation.TabIndex="1" Margin="0,0,0,1" />
+              </ScrollViewer>
+            </Border>
+            <Border Grid.Row="1" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1,0,1,1">
+              <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Margin="1" />
+            </Border>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="Dps.TabItem" TargetType="TabItem">
+    <Setter Property="Foreground" Value="{DynamicResource Dps.Muted}" />
+    <Setter Property="Padding" Value="7,4" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabItem">
+          <Border x:Name="Tab" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,2,0,0" Padding="{TemplateBinding Padding}">
+            <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.Hover}" /></Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Foreground" Value="{DynamicResource Dps.Foreground}" />
+              <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.Surface}" />
+              <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.Accent}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.Accent}" /></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="Dps.TextBox" TargetType="TextBox">
+    <Setter Property="Background" Value="{DynamicResource Dps.Surface}" />
+    <Setter Property="Foreground" Value="{DynamicResource Dps.Foreground}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Dps.Accent}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Dps.Selected}" />
+    <Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="12" />
+  </Style>
+  <Style x:Key="Dps.TreeView" TargetType="TreeView">
+    <Setter Property="Background" Value="{DynamicResource Dps.Surface}" />
+    <Setter Property="Foreground" Value="{DynamicResource Dps.Foreground}" />
+    <Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="8" />
+  </Style>
+  <Style x:Key="Dps.Menu" TargetType="ContextMenu">
+    <Setter Property="Background" Value="{DynamicResource Dps.Surface}" />
+    <Setter Property="Foreground" Value="{DynamicResource Dps.Foreground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Dps.Border}" />
+  </Style>
+</ResourceDictionary>
