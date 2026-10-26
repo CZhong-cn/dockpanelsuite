@@ -56,7 +56,7 @@ namespace DockPanelSuite.Wpf.Sample
             _sampleThemeResources = DockThemeResources.Create(theme);
             Resources.MergedDictionaries.Add(_sampleThemeResources);
             Docking.Theme = theme;
-            ThemeButton.Content = theme == DockTheme.Dark ? "☀  浅色模式" : "☾  深色模式";
+            ThemeButton.Content = ThemeName(theme) + " ▾";
         }
 
         private FrameworkElement BuildInspector()
@@ -72,7 +72,9 @@ namespace DockPanelSuite.Wpf.Sample
                 panel.Children.Add(label);
                 panel.Children.Add(new TextBlock { Text = pair[1], TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 18) });
             }
-            return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            var viewer = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            viewer.SetResourceReference(StyleProperty, "Dps.ScrollViewer");
+            return viewer;
         }
 
         private void UpdateActiveItem()
@@ -99,7 +101,22 @@ namespace DockPanelSuite.Wpf.Sample
                 Editor("{\n  \"station\": \"检测工位 A\",\n  \"recipe\": \"零件表面检测\",\n  \"steps\": [\n    \"图像采集\",\n    \"定位与校正\",\n    \"尺寸测量\",\n    \"结果判定\"\n  ]\n}\n")));
         }
         private void NewDocument(object sender, RoutedEventArgs args) => AddDocument();
-        private void ToggleTheme(object sender, RoutedEventArgs args) => SetTheme(Docking.Theme == DockTheme.Dark ? DockTheme.Light : DockTheme.Dark);
+        private static string ThemeName(DockTheme theme) => theme == DockTheme.GreenDark ? "绿色深色 / GreenDark" : theme == DockTheme.Dark ? "深色 / Dark" : "浅色 / Light";
+        private void ChooseTheme(object sender, RoutedEventArgs args)
+        {
+            var button = (Button)sender;
+            var menu = new ContextMenu { PlacementTarget = button, Placement = PlacementMode.Bottom };
+            menu.Resources.MergedDictionaries.Add(_sampleThemeResources);
+            menu.SetResourceReference(StyleProperty, "Dps.Menu");
+            foreach (DockTheme theme in Enum.GetValues(typeof(DockTheme)))
+            {
+                var command = new MenuItem { Header = ThemeName(theme), Tag = theme, IsCheckable = true, IsChecked = Docking.Theme == theme };
+                command.Click += (s, e) => SetTheme(theme);
+                menu.Items.Add(command);
+            }
+            button.ContextMenu = menu;
+            menu.IsOpen = true;
+        }
 
         private void ChoosePane(object sender, RoutedEventArgs args)
         {
@@ -115,6 +132,73 @@ namespace DockPanelSuite.Wpf.Sample
             menu.IsOpen = true;
         }
 
+        private void ShowNestedLayout(object sender, RoutedEventArgs args) => ArrangeNestedLayout();
+
+        public void ArrangeNestedLayout()
+        {
+            foreach (var item in Docking.Items) Docking.Show(item, DockState.Hidden);
+            var documents = Enumerable.Range(1, 5).Select(number =>
+            {
+                string id = "nested-document-" + number;
+                var item = Docking.Items.FirstOrDefault(candidate => candidate.Id == id);
+                if (item == null)
+                {
+                    item = new DockItem(id, "Document" + number, Editor("Document" + number + "\n\n可拖动标签，在任意子窗口内继续分割或合并。\n\n中央箭头：在当前分组内分割\n中央方块：合并为标签\n四边图标：停靠到工作区边缘", true));
+                    Docking.Add(item);
+                }
+                else Docking.Show(item, DockState.Document);
+                return item;
+            }).ToArray();
+            foreach (var item in documents.Skip(1)) Docking.Dock(item, documents[0]);
+            Docking.Dock(documents[4], documents[0], DockPosition.Right);
+            Docking.Dock(documents[2], documents[0], DockPosition.Bottom);
+            Docking.Dock(documents[3], documents[4], DockPosition.Bottom);
+            var properties = Docking.Items.Single(item => item.Id == "properties");
+            var output = Docking.Items.Single(item => item.Id == "output");
+            var solution = Docking.Items.Single(item => item.Id == "explorer");
+            Docking.Show(properties, DockState.Right); Docking.Show(output, DockState.Right); Docking.Show(solution, DockState.Right);
+            Docking.Dock(output, properties, DockPosition.Bottom, 2d / 3);
+            Docking.Dock(solution, output, DockPosition.Bottom);
+            var toolbox = Docking.Items.FirstOrDefault(item => item.Id == "nested-toolbox");
+            if (toolbox == null) { toolbox = new DockItem("nested-toolbox", "Toolbox", Editor("常规\n\n  指针\n  文本\n  图像\n  控件", true)); Docking.Add(toolbox, DockState.Left); }
+            else Docking.Show(toolbox, DockState.Left);
+            Docking.Activate(documents[4]);
+            Status.Text = "树状停靠布局 · 四个文档组 / 三个右侧工具组";
+        }
+        private void ShowTabbedToolLayout(object sender, RoutedEventArgs args) => ArrangeTabbedToolLayout();
+
+        public void ArrangeTabbedToolLayout()
+        {
+            ArrangeNestedLayout();
+            foreach (var item in Docking.Items.Where(candidate => candidate.State == DockState.Right).ToArray()) Docking.Show(item, DockState.Hidden);
+            var output = Docking.Items.FirstOrDefault(item => item.Id == "group-output");
+            if (output == null)
+            {
+                output = new DockItem("group-output", "Output", Editor("Build started...\n\nWpfUI → native WPF docking library\nWpfSample → workbench sample\n\nBuild succeeded.\n0 errors, 0 warnings", true));
+                Docking.Add(output, DockState.Right);
+            }
+            else Docking.Show(output, DockState.Right);
+            var solution = Docking.Items.FirstOrDefault(item => item.Id == "group-solution");
+            if (solution == null)
+            {
+                var tree = new TreeView(); tree.SetResourceReference(StyleProperty, "Dps.TreeView");
+                var root = new TreeViewItem { Header = "Solution 'DockPanelSuite'", IsExpanded = true };
+                foreach (var name in new[] { "WpfUI", "WpfSample", "WpfTests" })
+                {
+                    var project = new TreeViewItem { Header = name, IsExpanded = true };
+                    project.Items.Add(new TreeViewItem { Header = name == "WpfUI" ? "DockWorkspace.cs" : name == "WpfSample" ? "MainWindow.xaml" : "ToolGroupTests.cs" });
+                    root.Items.Add(project);
+                }
+                tree.Items.Add(root);
+                solution = new DockItem("group-solution", "Solution Explorer", tree);
+                Docking.Add(solution, DockState.Right);
+            }
+            else Docking.Show(solution, DockState.Right);
+            Docking.Dock(output, solution);
+            Docking.MoveBefore(output, solution);
+            Docking.Activate(solution);
+            Status.Text = "工具组示例 · 底部标签切换 / pin 整组自动隐藏";
+        }
         private void ResetLayout(object sender, RoutedEventArgs args)
         {
             using (var stream = new MemoryStream(_defaultLayout)) Docking.LoadLayout(stream);

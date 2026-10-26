@@ -1,6 +1,6 @@
 ## Windows CI and native WPF
 
-Native WPF 0.2 adds live light/dark themes, auto-hide rails and flyouts, tab reorder, drop previews, document shortcuts and a richer workbench sample. A separate Linux CI job tests the shared drop-target geometry.
+Native WPF adds nested document/tool-pane split trees, per-group layout persistence, live light/dark themes, tool-pane bottom tabs with group pin/unpin, auto-hide rails and flyouts, tab reorder, Visual Studio-style docking guides and drop previews, document shortcuts and a richer workbench sample. A separate Linux CI job tests the shared drop-target geometry.
 
 This fork supports .NET Core 3.1 and .NET 6 for WinForms and adds an independent native WPF docking library, sample and tests. See [native WPF usage and compatibility](docs/native-wpf.md) for setup, API examples and current scope.
 

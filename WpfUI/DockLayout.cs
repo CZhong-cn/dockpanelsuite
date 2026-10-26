@@ -5,7 +5,8 @@ namespace DockPanelSuite.Wpf
     // Only identities and geometry are serialized; arbitrary WPF content is never deserialized.
     public sealed class DockLayout
     {
-        public int Version { get; set; } = 2;
+        public int Version { get; set; } = 3;
+        public List<DockRegionLayout> Regions { get; set; } = new List<DockRegionLayout>();
         public string ActiveId { get; set; }
         public List<DockPlacement> Items { get; set; } = new List<DockPlacement>();
         public List<string> SelectedIds { get; set; } = new List<string>();

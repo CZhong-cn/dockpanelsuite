@@ -1,0 +1,30 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="Controls.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+  <!-- MasterGo file 193180413336859, layers 429:39626 and 575:34515.
+       Neutral charcoal surfaces with the shared green/100 accent (#12C785).
+       paint_7:980 = white/15, paint_7:978 = white/12, paint_7:982 = white/20.
+       paint_9:0084 = white/35 border, paint_9:0138 = white/60 secondary text.
+       paint_526:41102 = rgba(18,199,133,0.3), encoded as WPF ARGB #4D12C785.
+       Guide roles adapt these same tokens to docking chrome. -->
+  <SolidColorBrush x:Key="Dps.Background" Color="#262626" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Surface" Color="#1F1F1F" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Header" Color="#262626" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Foreground" Color="#FFFFFF" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Muted" Color="#A4A4A4" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Border" Color="#4F4F4F" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Hover" Color="#333333" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Accent" Color="#12C785" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Selected" Color="#4D12C785" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Preview" Color="#4D12C785" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Success" Color="#12C785" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideBackground" Color="#1F1F1F" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuidePlate" Color="#333333" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideBorder" Color="#A4A4A4" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideGlyph" Color="#FFFFFF" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideHover" Color="#12C785" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideHoverGlyph" Color="#141414" po:Freeze="True" />
+</ResourceDictionary>

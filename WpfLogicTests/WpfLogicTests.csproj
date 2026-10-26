@@ -6,6 +6,8 @@
   <ItemGroup>
     <Compile Include="../WpfUI/DockState.cs" Link="DockState.cs" />
     <Compile Include="../WpfUI/DockDropTargetResolver.cs" Link="DockDropTargetResolver.cs" />
+    <Compile Include="../WpfUI/DockGuideGeometry.cs" Link="DockGuideGeometry.cs" />
+    <Compile Include="../WpfUI/DockGuideMetrics.cs" Link="DockGuideMetrics.cs" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.3" />
     <PackageReference Include="NUnit" Version="3.13.3" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.3.2" />

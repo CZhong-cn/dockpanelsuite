@@ -22,7 +22,7 @@ namespace DockPanelSuite.Wpf
         private readonly Dictionary<DockItem, ContentPresenter> _presenters = new Dictionary<DockItem, ContentPresenter>();
         private readonly Dictionary<DockItem, Window> _floats = new Dictionary<DockItem, Window>();
         private readonly Dictionary<DockState, string> _selected = new Dictionary<DockState, string>();
-        private readonly Dictionary<DockState, TabControl> _tabs = new Dictionary<DockState, TabControl>();
+        private readonly Dictionary<DockTabGroup, TabControl> _tabs = new Dictionary<DockTabGroup, TabControl>();
         private readonly HashSet<Window> _closing = new HashSet<Window>();
         private Grid _grid;
         private bool _rendering;
@@ -33,7 +33,7 @@ namespace DockPanelSuite.Wpf
             Items = new ReadOnlyObservableCollection<DockItem>(_items);
             InitializeInteraction();
             Loaded += (sender, args) => Render();
-            Unloaded += (sender, args) => { DismissAutoHide(); CloseFloatingWindows(); };
+            Unloaded += (sender, args) => { ClearDropPreview(); DismissAutoHide(); CloseFloatingWindows(); };
             Render();
         }
 
@@ -72,10 +72,12 @@ namespace DockPanelSuite.Wpf
             if (state == DockState.AutoHide && !IsEdge(item.LastDockState))
                 throw new ArgumentException("Auto-hide requires a tool pane with a dock edge.", nameof(state));
             CaptureGeometry();
-            if (_autoHideItem == item) _autoHideItem = null;
+            if (_autoHideItem == item || (state != DockState.Hidden && state != DockState.AutoHide)) _autoHideItem = null;
             foreach (var selection in _selected.Where(pair => pair.Value == item.Id && pair.Key != state).ToArray())
                 _selected.Remove(selection.Key);
+            EnsureItemGroup(item, state);
             item.SetState(state);
+            SelectInGroup(item);
             if (state != DockState.Hidden)
             {
                 _selected[state] = item.Id;
@@ -106,6 +108,7 @@ namespace DockPanelSuite.Wpf
             CaptureGeometry();
             if (_autoHideItem == item) _autoHideItem = null;
             foreach (var pair in _selected.Where(pair => pair.Value == item.Id).ToArray()) _selected.Remove(pair.Key);
+            RemoveFromGroups(item.Id);
             _items.Remove(item);
             Render();
             _presenters[item].Content = null;
@@ -123,6 +126,7 @@ namespace DockPanelSuite.Wpf
             var layout = new DockLayout
             {
                 ActiveId = ActiveItem?.Id,
+                Regions = _roots.Select(pair => new DockRegionLayout { State = pair.Key, Root = pair.Value }).ToList(),
                 LeftWidth = _sizes.LeftWidth, RightWidth = _sizes.RightWidth,
                 TopHeight = _sizes.TopHeight, BottomHeight = _sizes.BottomHeight,
                 SelectedIds = _selected.Where(pair => pair.Key == DockState.Document || IsEdge(pair.Key))
@@ -146,7 +150,7 @@ namespace DockPanelSuite.Wpf
             { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, CloseInput = false, MaxCharactersInDocument = 1000000 }))
                 layout = (DockLayout)new XmlSerializer(typeof(DockLayout)).Deserialize(reader);
             // Validate the entire snapshot before modifying the live UI.
-            if ((layout.Version != 1 && layout.Version != 2) || layout.Items == null || layout.SelectedIds == null)
+            if ((layout.Version != 1 && layout.Version != 2 && layout.Version != 3) || layout.Items == null || layout.SelectedIds == null)
                 throw new InvalidDataException("Unsupported or incomplete layout.");
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var entry in layout.Items)
@@ -163,8 +167,10 @@ namespace DockPanelSuite.Wpf
             }
             foreach (var size in new[] { layout.LeftWidth, layout.RightWidth, layout.TopHeight, layout.BottomHeight })
                 if (!Finite(size) || size < 40 || size > 10000) throw new InvalidDataException("Invalid pane size.");
+            ValidateLayoutTrees(layout);
             CloseFloatingWindows();
             _autoHideItem = null;
+            _initialSizingApplied = true;
             _sizes = layout;
             _selected.Clear();
             // Unknown IDs are ignored; registered content omitted from a full snapshot is hidden.
@@ -181,13 +187,11 @@ namespace DockPanelSuite.Wpf
             var order = layout.Items.Select(entry => _items.FirstOrDefault(item => item.Id == entry.Id)).Where(item => item != null).ToList();
             order.AddRange(_items.Where(item => !order.Contains(item)).ToArray());
             for (int index = 0; index < order.Count; index++) _items.Move(_items.IndexOf(order[index]), index);
-            foreach (var id in layout.SelectedIds)
-            {
-                var item = _items.FirstOrDefault(candidate => candidate.Id == id);
-                if (item != null && item.State != DockState.Hidden) _selected[item.State] = id;
-            }
+            RestoreLayoutTrees(layout);
             SetActiveItem(_items.FirstOrDefault(item => item.Id == layout.ActiveId && item.State != DockState.Hidden && item.State != DockState.AutoHide));
+            if (ActiveItem != null) SelectInGroup(ActiveItem);
             Render();
+            if (ActiveItem != null) FocusContent(ActiveItem);
             LayoutChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -209,6 +213,7 @@ namespace DockPanelSuite.Wpf
 
         private void CaptureGeometry()
         {
+            CaptureSplitRatios();
             if (_grid != null && _grid.ActualWidth > 0)
             {
                 if (_grid.ColumnDefinitions[0].ActualWidth >= 40) _sizes.LeftWidth = _grid.ColumnDefinitions[0].ActualWidth;
@@ -220,7 +225,8 @@ namespace DockPanelSuite.Wpf
             {
                 var window = pair.Value;
                 var bounds = window.WindowState == WindowState.Normal
-                    ? new Rect(window.Left, window.Top, window.Width, window.Height) : window.RestoreBounds;
+                    ? new Rect(window.Left, window.Top, window.ActualWidth > 0 ? window.ActualWidth : window.Width,
+                        window.ActualHeight > 0 ? window.ActualHeight : window.Height) : window.RestoreBounds;
                 if (!bounds.IsEmpty) pair.Key.FloatingBounds = bounds;
             }
         }
@@ -239,6 +245,7 @@ namespace DockPanelSuite.Wpf
                     tab.Items.Clear();
                 }
                 _tabs.Clear();
+                _splitViews.Clear();
                 ClearDropPreview();
                 foreach (var window in _floats.Values)
                 {
@@ -249,13 +256,13 @@ namespace DockPanelSuite.Wpf
                     if (!_items.Contains(pair.Key) || pair.Key.State != DockState.Float) CloseFloat(pair.Key, pair.Value);
 
                 _grid = new Grid { AllowDrop = true };
-                _grid.SetResourceReference(Panel.BackgroundProperty, "Dps.Background");
-                foreach (var width in new[] { _sizes.LeftWidth, 5, -1, 5, _sizes.RightWidth })
+                _grid.SetResourceReference(StyleProperty, "Dps.DockSurface");
+                foreach (var width in new[] { _sizes.LeftWidth, 0, -1, 0, _sizes.RightWidth })
                     _grid.ColumnDefinitions.Add(new ColumnDefinition { Width = width < 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(width) });
-                foreach (var height in new[] { _sizes.TopHeight, 5, -1, 5, _sizes.BottomHeight })
+                foreach (var height in new[] { _sizes.TopHeight, 0, -1, 0, _sizes.BottomHeight })
                     _grid.RowDefinitions.Add(new RowDefinition { Height = height < 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(height) });
-                _grid.ColumnDefinitions[2].MinWidth = 120;
-                _grid.RowDefinitions[2].MinHeight = 100;
+                _grid.ColumnDefinitions[2].SetResourceReference(ColumnDefinition.MinWidthProperty, "Dps.DocumentMinWidth");
+                _grid.RowDefinitions[2].SetResourceReference(RowDefinition.MinHeightProperty, "Dps.DocumentMinHeight");
                 AddZone(DockState.Document, 2, 2);
                 AddZone(DockState.Left, 2, 0);
                 AddZone(DockState.Right, 2, 4);
@@ -265,9 +272,10 @@ namespace DockPanelSuite.Wpf
                 AddSplitter(DockState.Right, 2, 3, false);
                 AddSplitter(DockState.Top, 1, 0, true);
                 AddSplitter(DockState.Bottom, 3, 0, true);
-                _grid.Drop += OnDrop;
-                _grid.DragOver += OnDragOver;
-                _grid.DragLeave += (sender, args) => ClearDropPreview();
+                _grid.PreviewDrop += OnDrop;
+                _grid.PreviewDragEnter += OnDragOver;
+                _grid.PreviewDragOver += OnDragOver;
+                _grid.PreviewDragLeave += OnDragLeave;
                 BuildSurface();
                 EnsureActiveItem();
                 if (IsLoaded)
@@ -276,56 +284,26 @@ namespace DockPanelSuite.Wpf
             finally { _rendering = false; }
         }
 
-        private void AddZone(DockState state, int row, int column, int span = 1)
-        {
-            var items = _items.Where(item => item.State == state).ToList();
-            if (state != DockState.Document && items.Count == 0)
-            {
-                if (state == DockState.Left || state == DockState.Right) _grid.ColumnDefinitions[column].Width = new GridLength(0);
-                else _grid.RowDefinitions[row].Height = new GridLength(0);
-                return;
-            }
-            var tabs = new TabControl { Tag = state };
-            if (state == DockState.Left || state == DockState.Right) _grid.ColumnDefinitions[column].MinWidth = 80;
-            else if (state != DockState.Document) _grid.RowDefinitions[row].MinHeight = 60;
-            tabs.SetResourceReference(StyleProperty, "Dps.TabControl");
-            foreach (var item in items)
-            {
-                var page = new TabItem { Header = Header(item), Content = _presenters[item], Tag = item };
-                page.SetResourceReference(StyleProperty, "Dps.TabItem");
-                page.SetBinding(System.Windows.Automation.AutomationProperties.NameProperty, new Binding(nameof(DockItem.Title)) { Source = item });
-                tabs.Items.Add(page);
-            }
-            if (_selected.TryGetValue(state, out var id))
-                tabs.SelectedItem = tabs.Items.Cast<TabItem>().FirstOrDefault(tab => ((DockItem)tab.Tag).Id == id);
-            if (tabs.SelectedItem == null && tabs.Items.Count > 0) tabs.SelectedIndex = 0;
-            if (tabs.SelectedItem is TabItem current) _selected[state] = ((DockItem)current.Tag).Id;
-            tabs.SelectionChanged += (sender, args) =>
-            {
-                if (args.Source != tabs || _rendering || !(tabs.SelectedItem is TabItem selected)) return;
-                var item = (DockItem)selected.Tag;
-                _selected[state] = item.Id;
-                SetActiveItem(item);
-                LayoutChanged?.Invoke(this, EventArgs.Empty);
-            };
-            _tabs.Add(state, tabs);
-            Place(tabs, row, column, span);
-        }
-
         private void AddSplitter(DockState state, int row, int column, bool horizontal)
         {
             bool visible = _items.Any(item => item.State == state);
-            if (horizontal) _grid.RowDefinitions[row].Height = new GridLength(visible ? 5 : 0);
-            else _grid.ColumnDefinitions[column].Width = new GridLength(visible ? 5 : 0);
+            if (horizontal)
+            {
+                if (visible) _grid.RowDefinitions[row].SetResourceReference(RowDefinition.HeightProperty, "Dps.SplitterLength");
+                else _grid.RowDefinitions[row].Height = new GridLength(0);
+            }
+            else
+            {
+                if (visible) _grid.ColumnDefinitions[column].SetResourceReference(ColumnDefinition.WidthProperty, "Dps.SplitterLength");
+                else _grid.ColumnDefinitions[column].Width = new GridLength(0);
+            }
             if (!visible) return;
             var splitter = new GridSplitter
             {
-                HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
-                ResizeDirection = horizontal ? GridResizeDirection.Rows : GridResizeDirection.Columns,
-                ResizeBehavior = GridResizeBehavior.PreviousAndNext,
-                ShowsPreview = true
+                ResizeDirection = horizontal ? GridResizeDirection.Rows : GridResizeDirection.Columns
             };
-            splitter.SetResourceReference(BackgroundProperty, "Dps.Border");
+            splitter.SetResourceReference(StyleProperty, "Dps.Splitter");
+            System.Windows.Automation.AutomationProperties.SetName(splitter, RegionName(state));
             splitter.DragCompleted += (sender, args) => { CaptureGeometry(); LayoutChanged?.Invoke(this, EventArgs.Empty); };
             Place(splitter, row, column, horizontal ? 5 : 1);
         }
@@ -345,12 +323,9 @@ namespace DockPanelSuite.Wpf
         private void OnDrop(object sender, DragEventArgs args)
         {
             var item = GetDraggedItem(args);
-            if (item == null) return;
-            ClearDropPreview();
-            var point = args.GetPosition(_grid);
-            var state = DockDropTargetResolver.Resolve(point.X, point.Y, Math.Max(1, _grid.ActualWidth), Math.Max(1, _grid.ActualHeight));
-            Show(item, state);
-            args.Effects = DragDropEffects.Move;
+            if (item == null) { ClearDropPreview(); return; }
+            bool dropped = CompleteDockDrag(item, args.GetPosition(_grid), HeaderItemFromSource(args.OriginalSource as DependencyObject));
+            args.Effects = dropped ? DragDropEffects.Move : DragDropEffects.None;
             args.Handled = true;
         }
 
@@ -363,18 +338,19 @@ namespace DockPanelSuite.Wpf
                 var area = SystemParameters.WorkArea;
                 window = new Window
                 {
-                    Left = Math.Max(area.Left, Math.Min(bounds.X, area.Right - 100)),
-                    Top = Math.Max(area.Top, Math.Min(bounds.Y, area.Bottom - 80)),
-                    Width = bounds.Width, Height = bounds.Height, MinWidth = 100, MinHeight = 80,
-                    ShowInTaskbar = false, Owner = Window.GetWindow(this)
+                    Left = Math.Max(area.Left, Math.Min(bounds.X, area.Right - Metric("Dps.FloatingMinWidth"))),
+                    Top = Math.Max(area.Top, Math.Min(bounds.Y, area.Bottom - Metric("Dps.FloatingMinHeight"))),
+                    Width = bounds.Width, Height = bounds.Height, Owner = Window.GetWindow(this)
                 };
                 ApplyFloatingTheme(window);
-                window.Activated += (sender, args) => SetActiveItem(item);
+                window.Activated += (sender, args) => { if (!_rendering) SetActiveItem(item); };
                 window.PreviewKeyDown += OnWorkspaceKeyDown;
                 window.SetBinding(Window.TitleProperty, new Binding(nameof(DockItem.Title)) { Source = item });
                 window.Closing += (sender, args) =>
                 {
-                    if (!_closing.Contains(window) && !CanHide(item)) args.Cancel = true;
+                    if (_closing.Contains(window)) return;
+                    if (!CanHide(item)) args.Cancel = true;
+                    else CaptureGeometry();
                 };
                 window.Closed += (sender, args) =>
                 {
@@ -387,10 +363,9 @@ namespace DockPanelSuite.Wpf
                 _floats.Add(item, window);
             }
             var frame = new System.Windows.Controls.DockPanel();
-            frame.SetResourceReference(Panel.BackgroundProperty, "Dps.Surface");
-            frame.SetResourceReference(TextElement.ForegroundProperty, "Dps.Foreground");
+            frame.SetResourceReference(StyleProperty, "Dps.FloatingContent");
             var header = Header(item);
-            System.Windows.Controls.DockPanel.SetDock(header, Dock.Top);
+            System.Windows.Controls.DockPanel.SetDock(header, System.Windows.Controls.Dock.Top);
             frame.Children.Add(header);
             frame.Children.Add(_presenters[item]);
             window.Content = frame;

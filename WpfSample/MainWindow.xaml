@@ -5,7 +5,7 @@
         Title="DockPanel Suite · WPF 工作台" Width="1360" Height="860" MinWidth="960" MinHeight="640"
         Background="{DynamicResource Dps.Background}" Foreground="{DynamicResource Dps.Foreground}"
         FontFamily="Segoe UI, Microsoft YaHei UI" FontSize="12" UseLayoutRounding="True">
-  <Grid>
+  <Grid Background="{DynamicResource Dps.Background}">
     <Grid.RowDefinitions><RowDefinition Height="72" /><RowDefinition Height="44" /><RowDefinition Height="*" /><RowDefinition Height="30" /></Grid.RowDefinitions>
     <Border Background="{DynamicResource Dps.Surface}" BorderBrush="{DynamicResource Dps.Border}" BorderThickness="0,0,0,1">
       <Grid Margin="20,0">
@@ -20,7 +20,7 @@
         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
           <Button Content="＋  新建文档" Click="NewDocument" Style="{DynamicResource Dps.Button}" Margin="4" />
           <Button Content="面板 ▾" Click="ChoosePane" Style="{DynamicResource Dps.Button}" Margin="4" />
-          <Button x:Name="ThemeButton" Content="切换主题" Click="ToggleTheme" Style="{DynamicResource Dps.Button}" Margin="4" />
+          <Button x:Name="ThemeButton" Content="切换主题" Click="ChooseTheme" Style="{DynamicResource Dps.Button}" Margin="4" />
         </StackPanel>
       </Grid>
     </Border>
@@ -31,6 +31,8 @@
         <TextBlock Text="  /  检测工位 A  /  默认布局" VerticalAlignment="Center" />
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button Content="工具组示例" Click="ShowTabbedToolLayout" Style="{DynamicResource Dps.IconButton}" Margin="6,0" />
+        <Button Content="多窗格示例" Click="ShowNestedLayout" Style="{DynamicResource Dps.IconButton}" Margin="6,0" />
         <Button Content="重置布局" Click="ResetLayout" Style="{DynamicResource Dps.IconButton}" Margin="6,0" />
         <Button Content="恢复布局" Click="RestoreLayout" Style="{DynamicResource Dps.IconButton}" Margin="6,0" />
         <Button Content="保存布局" Click="SaveLayout" Style="{DynamicResource Dps.IconButton}" Margin="6,0" />
@@ -42,7 +44,7 @@
         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
         <TextBlock Text="●  READY" Foreground="{DynamicResource Dps.Success}" VerticalAlignment="Center" FontSize="10" FontWeight="SemiBold" />
         <TextBlock x:Name="Status" Grid.Column="1" Text="工作台就绪" VerticalAlignment="Center" Margin="20,0" Foreground="{DynamicResource Dps.Muted}" />
-        <TextBlock Grid.Column="2" Text="Ctrl+Tab 切换文档  ·  Ctrl+W 关闭  ·  Esc 收起面板" Foreground="{DynamicResource Dps.Muted}" VerticalAlignment="Center" FontSize="11" />
+        <TextBlock Grid.Column="2" Text="Ctrl+Tab 切换文档  ·  Ctrl+F4 关闭  ·  Esc 收起面板" Foreground="{DynamicResource Dps.Muted}" VerticalAlignment="Center" FontSize="11" />
       </Grid>
     </Border>
   </Grid>

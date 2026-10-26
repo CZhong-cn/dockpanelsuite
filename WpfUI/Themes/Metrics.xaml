@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    xmlns:local="clr-namespace:DockPanelSuite.Wpf">
+  <FontFamily x:Key="Dps.FontFamily">Segoe UI</FontFamily>
+  <sys:Double x:Key="Dps.FontSize">12</sys:Double>
+  <GridLength x:Key="Dps.SplitterLength">5</GridLength>
+  <sys:Double x:Key="Dps.PaneMinWidth">80</sys:Double>
+  <sys:Double x:Key="Dps.PaneMinHeight">60</sys:Double>
+  <sys:Double x:Key="Dps.DocumentMinWidth">120</sys:Double>
+  <sys:Double x:Key="Dps.DocumentMinHeight">100</sys:Double>
+  <sys:Double x:Key="Dps.FloatingMinWidth">100</sys:Double>
+  <sys:Double x:Key="Dps.FloatingMinHeight">80</sys:Double>
+  <sys:Double x:Key="Dps.FlyoutMinWidth">220</sys:Double>
+  <sys:Double x:Key="Dps.FlyoutMinHeight">160</sys:Double>
+  <sys:Double x:Key="Dps.DefaultToolWidth">220</sys:Double>
+  <sys:Double x:Key="Dps.DefaultToolHeight">160</sys:Double>
+  <Thickness x:Key="Dps.DropPreviewInset">2</Thickness>
+  <local:DockGuideMetrics x:Key="Dps.GuideMetrics" TileSize="32" Step="38" PlateSize="120" ScaleThreshold="240" OuterMargin="12" />
+</ResourceDictionary>

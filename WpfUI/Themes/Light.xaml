@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="Controls.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+  <SolidColorBrush x:Key="Dps.Background" Color="#E8EDF4" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Surface" Color="#FFFFFF" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Header" Color="#F3F6FA" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Foreground" Color="#202D42" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Muted" Color="#5A6D86" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Border" Color="#CDD7E4" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Hover" Color="#E4EEF9" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Accent" Color="#006CB8" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Selected" Color="#DCEEFE" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Preview" Color="#55409CDB" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.Success" Color="#176947" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideBackground" Color="#FAFCFF" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuidePlate" Color="#EAF1FA" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideBorder" Color="#6C89AB" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideGlyph" Color="#0067B5" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideHover" Color="#007ACC" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.GuideHoverGlyph" Color="#FFFFFF" po:Freeze="True" />
+</ResourceDictionary>

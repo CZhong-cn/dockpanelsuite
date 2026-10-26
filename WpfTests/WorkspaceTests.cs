@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 using System.Xml.Serialization;
@@ -106,6 +107,7 @@ namespace DockPanelSuite.Wpf.Tests
         public void RestoreSkipsUnknownIdsAndHidesItemsMissingFromSnapshot()
         {
             var layout = Snapshot();
+            layout.Version = 2; // Legacy snapshots have no tree references.
             layout.Items[0].Id = "uninstalled-plugin";
             Restore(layout);
             Assert.AreEqual(DockState.Hidden, _item.State);
@@ -340,6 +342,159 @@ namespace DockPanelSuite.Wpf.Tests
             Assert.AreSame(tool, _workspace.ActiveItem);
         }
 
+        [Test]
+        public void ClosingAFloatingWindowPreservesItsLatestBounds()
+        {
+            ShowHost();
+            _workspace.Float(_item); Pump();
+            var window = _host.OwnedWindows[0];
+            window.Left = 160; window.Top = 180;
+            window.Width = 520; window.Height = 360;
+            Pump();
+            var expected = new Rect(window.Left, window.Top, window.Width, window.Height);
+            window.Close(); Pump();
+            Assert.AreEqual(expected, _item.FloatingBounds);
+        }
+
+        [Test]
+        public void ActivatingADocumentDismissesTheAutoHideOverlay()
+        {
+            var tool = new DockItem("tool", "Tool", new TextBox());
+            _workspace.Add(tool, DockState.Right);
+            _workspace.AutoHide(tool);
+            _workspace.OpenAutoHide(tool);
+            _workspace.Activate(_item);
+            Assert.IsNull(_workspace.OpenAutoHideItem);
+            Assert.AreSame(_item, _workspace.ActiveItem);
+        }
+
+        [TestCase(DockState.Left), TestCase(DockState.Right), TestCase(DockState.Top), TestCase(DockState.Bottom)]
+        public void AutoHideFlyoutStaysInsideANarrowWorkspace(DockState edge)
+        {
+            ShowHost();
+            var tool = new DockItem("tool", "Tool", new TextBox());
+            _workspace.Add(tool, edge);
+            _workspace.AutoHide(tool);
+            _host.Width = 220; _host.Height = 180; Pump();
+            _workspace.OpenAutoHide(tool); Pump();
+            var surface = (Grid)_workspace.Content;
+            var flyout = surface.Children.OfType<Border>().Single();
+            Assert.LessOrEqual(flyout.ActualWidth, surface.ActualWidth);
+            Assert.LessOrEqual(flyout.ActualHeight, surface.ActualHeight);
+            _host.Width = 800; _host.Height = 600; Pump();
+            if (edge == DockState.Left || edge == DockState.Right) Assert.GreaterOrEqual(flyout.ActualWidth, 220);
+            else Assert.GreaterOrEqual(flyout.ActualHeight, 160);
+            _host.Width = 220; _host.Height = 180; Pump();
+            Assert.LessOrEqual(flyout.ActualWidth, surface.ActualWidth);
+            Assert.LessOrEqual(flyout.ActualHeight, surface.ActualHeight);
+        }
+
+        [Test]
+        public void DarkTreeHeadersUseTheThemeForeground()
+        {
+            _workspace.Theme = DockTheme.Dark;
+            var tree = new TreeView();
+            tree.SetResourceReference(FrameworkElement.StyleProperty, "Dps.TreeView");
+            var child = new TreeViewItem { Header = "Child" };
+            var parent = new TreeViewItem { Header = "Parent", IsExpanded = true };
+            parent.Items.Add(child); tree.Items.Add(parent);
+            _workspace.Add(new DockItem("tree", "Tree", tree), DockState.Left);
+            ShowHost();
+            Assert.AreEqual(((SolidColorBrush)_workspace.FindResource("Dps.Foreground")).Color,
+                ((SolidColorBrush)parent.Foreground).Color);
+            Assert.AreEqual(((SolidColorBrush)parent.Foreground).Color, ((SolidColorBrush)child.Foreground).Color);
+            _workspace.Theme = DockTheme.Light; Pump();
+            Assert.AreEqual(((SolidColorBrush)_workspace.FindResource("Dps.Foreground")).Color,
+                ((SolidColorBrush)child.Foreground).Color);
+        }
+
+        [Test]
+        public void ActivationTransfersFocusBetweenDockedAndFloatingContent()
+        {
+            var second = new DockItem("second", "Second", new TextBox());
+            _workspace.Add(second);
+            ShowHost();
+            _workspace.Float(_item); Pump();
+            var floating = _host.OwnedWindows[0];
+            _workspace.Activate(second); Pump();
+            Assert.IsTrue(_host.IsActive);
+            Assert.IsTrue(((TextBox)second.Content).IsKeyboardFocusWithin);
+            _workspace.Activate(_item); Pump();
+            Assert.IsTrue(floating.IsActive);
+            Assert.IsTrue(((TextBox)_item.Content).IsKeyboardFocusWithin);
+        }
+
+        [Test]
+        public void DismissingAutoHideReturnsKeyboardFocusToTheDocument()
+        {
+            var tool = new DockItem("tool", "Tool", new TextBox());
+            _workspace.Add(tool, DockState.Right);
+            _workspace.AutoHide(tool);
+            ShowHost();
+            _workspace.Activate(_item); Pump();
+            _workspace.OpenAutoHide(tool); Pump();
+            Assert.IsTrue(((TextBox)tool.Content).IsKeyboardFocusWithin);
+            _workspace.DismissAutoHide(); Pump();
+            Assert.IsTrue(((TextBox)_item.Content).IsKeyboardFocusWithin);
+        }
+
+        [Test]
+        public void DarkDockMenuCommandsUseTheThemeForeground()
+        {
+            _workspace.Theme = DockTheme.Dark;
+            ShowHost();
+            var page = Descendants<TabControl>(_workspace).Single().Items.Cast<TabItem>().Single();
+            var header = (FrameworkElement)page.Header;
+            var menu = header.ContextMenu;
+            menu.PlacementTarget = header;
+            try
+            {
+                menu.IsOpen = true; Pump();
+                foreach (var command in menu.Items.OfType<MenuItem>())
+                    Assert.AreEqual(((SolidColorBrush)_workspace.FindResource("Dps.Foreground")).Color,
+                        ((SolidColorBrush)command.Foreground).Color);
+            }
+            finally { menu.IsOpen = false; }
+        }
+        [TestCase(Orientation.Vertical), TestCase(Orientation.Horizontal)]
+        public void ThemedScrollBarsPageAndFollowContentOffsets(Orientation orientation)
+        {
+            var viewer = new ScrollViewer
+            {
+                Content = new Border { Width = 1600, Height = 1600 },
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            viewer.SetResourceReference(FrameworkElement.StyleProperty, "Dps.ScrollViewer");
+            _workspace.Add(new DockItem("scroll", "Scroll", viewer));
+            ShowHost();
+            var bar = VisualDescendants<ScrollBar>(viewer).Single(candidate => candidate.Orientation == orientation);
+            var track = (Track)bar.Template.FindName("PART_Track", bar);
+            Assert.IsNotNull(track.Thumb);
+            var command = orientation == Orientation.Vertical ? ScrollBar.PageDownCommand : ScrollBar.PageRightCommand;
+            command.Execute(null, bar); Pump();
+            var offset = orientation == Orientation.Vertical ? viewer.VerticalOffset : viewer.HorizontalOffset;
+            Assert.Greater(offset, 0);
+            Assert.AreEqual(offset, bar.Value);
+            if (orientation == Orientation.Vertical) viewer.ScrollToVerticalOffset(180);
+            else viewer.ScrollToHorizontalOffset(180);
+            Pump();
+            Assert.AreEqual(180, bar.Value);
+            Assert.AreEqual(bar.Value, track.Value);
+            _workspace.Theme = DockTheme.Dark; Pump();
+            Assert.AreEqual(((SolidColorBrush)_workspace.FindResource("Dps.Surface")).Color,
+                ((SolidColorBrush)bar.Background).Color);
+        }
+
+        private static System.Collections.Generic.IEnumerable<T> VisualDescendants<T>(DependencyObject root) where T : DependencyObject
+        {
+            for (int index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+            {
+                var child = VisualTreeHelper.GetChild(root, index);
+                if (child is T match) yield return match;
+                foreach (var descendant in VisualDescendants<T>(child)) yield return descendant;
+            }
+        }
         private static System.Collections.Generic.IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
         {
             foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())

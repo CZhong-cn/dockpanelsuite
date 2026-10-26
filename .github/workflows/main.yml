@@ -69,7 +69,7 @@ jobs:
             throw 'WPF smoke test timed out.'
           }
           if ($process.ExitCode -ne 0) { throw "WPF sample exited with $($process.ExitCode)." }
-          foreach ($image in @('wpf-sample.png', 'wpf-sample-light.png', 'wpf-sample-dark.png', 'wpf-auto-hide.png')) {
+          foreach ($image in @('wpf-sample.png', 'wpf-sample-light.png', 'wpf-sample-dark.png', 'wpf-auto-hide.png', 'wpf-sample-compact.png', 'wpf-sample-compact-scrolled.png', 'wpf-docking-guides-light.png', 'wpf-docking-guides-dark.png', 'wpf-nested-layout-dark.png', 'wpf-nested-layout-light.png', 'wpf-nested-docking-guides.png', 'wpf-tool-group-dark.png', 'wpf-tool-group-light.png', 'wpf-tool-group-autohide.png', 'wpf-tool-group-flyout.png', 'wpf-sample-greendark.png', 'wpf-docking-guides-greendark.png', 'wpf-tool-group-greendark.png', 'wpf-tool-group-flyout-greendark.png')) {
             if (-not (Test-Path "$env:DPS_SMOKE_OUTPUT/$image")) { throw "Smoke screenshot missing: $image" }
           }
       - name: Upload tests, screenshot and runnable sample
