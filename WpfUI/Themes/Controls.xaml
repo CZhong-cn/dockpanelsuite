@@ -87,17 +87,25 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TabItem">
-          <Border x:Name="Tab" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,2,0,0" Padding="{TemplateBinding Padding}">
+          <Border x:Name="Tab" Background="Transparent" BorderBrush="Transparent" BorderThickness="1,2,1,0" Padding="{TemplateBinding Padding}">
             <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" />
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.Hover}" /></Trigger>
             <Trigger Property="IsSelected" Value="True">
-              <Setter Property="Foreground" Value="{DynamicResource Dps.Foreground}" />
-              <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.Surface}" />
-              <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.Accent}" />
+              <Setter Property="Foreground" Value="{DynamicResource Dps.InactiveTabForeground}" />
+              <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.InactiveTabBackground}" />
+              <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.InactiveTabBorder}" />
             </Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.Accent}" /></Trigger>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True" />
+                <Condition Binding="{Binding Tag.IsActive, RelativeSource={RelativeSource Self}}" Value="True" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Foreground" Value="{DynamicResource Dps.ActiveTabForeground}" />
+              <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.ActiveTabBackground}" />
+              <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.ActiveTabBorder}" />
+            </MultiDataTrigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -111,7 +119,7 @@
         <ControlTemplate TargetType="TabControl">
           <Grid KeyboardNavigation.TabNavigation="Local">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-            <Border Background="{DynamicResource Dps.Header}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+            <Border x:Name="ToolCaptionFrame" Background="{DynamicResource Dps.Header}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
               <ContentPresenter x:Name="ToolCaption" Content="{DynamicResource Dps.ToolPaneHeader}" />
             </Border>
             <Border Grid.Row="1" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1,0,1,1">
@@ -126,6 +134,10 @@
           <ControlTemplate.Triggers>
             <DataTrigger Binding="{Binding Items.Count, RelativeSource={RelativeSource Self}}" Value="1"><Setter TargetName="BottomTabs" Property="Visibility" Value="Collapsed" /></DataTrigger>
             <Trigger Property="HasItems" Value="False"><Setter TargetName="BottomTabs" Property="Visibility" Value="Collapsed" /></Trigger>
+            <DataTrigger Binding="{Binding SelectedItem.Tag.IsActive, RelativeSource={RelativeSource Self}}" Value="True">
+              <Setter TargetName="ToolCaptionFrame" Property="Background" Value="{DynamicResource Dps.ActiveTabBackground}" />
+              <Setter TargetName="ToolCaptionFrame" Property="BorderBrush" Value="{DynamicResource Dps.ActiveTabBorder}" />
+            </DataTrigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -142,11 +154,19 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.Hover}" /></Trigger>
             <Trigger Property="IsSelected" Value="True">
-              <Setter Property="Foreground" Value="{DynamicResource Dps.Foreground}" />
-              <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.Selected}" />
-              <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.Accent}" />
+              <Setter Property="Foreground" Value="{DynamicResource Dps.InactiveTabForeground}" />
+              <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.InactiveTabBackground}" />
+              <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.InactiveTabBorder}" />
             </Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.Accent}" /></Trigger>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True" />
+                <Condition Binding="{Binding Tag.IsActive, RelativeSource={RelativeSource Self}}" Value="True" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Foreground" Value="{DynamicResource Dps.ActiveTabForeground}" />
+              <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Dps.ActiveTabBackground}" />
+              <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Dps.ActiveTabBorder}" />
+            </MultiDataTrigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>

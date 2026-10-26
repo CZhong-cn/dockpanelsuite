@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -83,6 +84,16 @@ namespace DockPanelSuite.Wpf.Sample
                     }
                     window.SetTheme(DockTheme.Light);
                     Capture(window, Path.Combine(directory, "wpf-nested-layout-light.png"));
+                    var focusedDocument = window.Workspace.Items.Single(candidate => candidate.Id == "nested-document-5");
+                    window.Workspace.Activate(focusedDocument);
+                    foreach (var theme in new[] { DockTheme.Light, DockTheme.Dark, DockTheme.GreenDark })
+                    {
+                        window.SetTheme(theme); window.UpdateLayout();
+                        Keyboard.Focus((TextBox)focusedDocument.Content);
+                        if (!focusedDocument.IsActive || window.Workspace.Items.Count(candidate => candidate.IsActive) != 1)
+                            throw new InvalidOperationException("Exactly one split pane should have an active header.");
+                        Capture(window, Path.Combine(directory, "wpf-active-pane-" + theme.ToString().ToLowerInvariant() + ".png"));
+                    }
                     window.ArrangeTabbedToolLayout();
                     window.SetTheme(DockTheme.Dark);
                     Capture(window, Path.Combine(directory, "wpf-tool-group-dark.png"));

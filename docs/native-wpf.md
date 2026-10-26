@@ -15,6 +15,7 @@ WinForms core and all themes continue to retain the existing targets. WPF uses
 | Tool groups | Shared top caption, bottom tabs, group pin/unpin and single-tab close |
 | Auto-hide | Four edge rails, grouped click-to-open flyouts, click-outside or Escape dismissal |
 | Themes | Live light/dark palettes, themed docking chrome, opt-in content styles |
+| Active pane | Focused document tabs and tool captions use a distinct highlight; other groups retain a muted selected tab |
 | Keyboard | Ctrl+Tab / Ctrl+Shift+Tab cycles visible documents; Ctrl+F4 closes the active item; Ctrl+W is opt-in via `IsCtrlWEnabled` |
 | Application integration | `ActiveItemChanged`, cancelable `ItemClosing`, content preserved while moving |
 | Persistence | Version 3 XML stores split trees, ratios, per-group tab order and selections, pane state, floating bounds and active item; versions 1 and 2 remain readable |
@@ -314,6 +315,20 @@ viewer styles include themed scrollbars; tree nodes have themed selection,
 expansion arrows and keyboard focus. Long docking titles truncate with a full
 text tooltip, and splitters highlight on hover or keyboard focus.
 
+`DockItem.IsActive` is a read-only, notifying property that follows
+`Workspace.ActiveItem`. Content keyboard/mouse focus, selecting or clicking a tab
+and activating a floating window update it. At most one item is active in each workspace;
+other split groups retain their selected tabs without the active highlight.
+Toolbar/menu interaction retains the last active pane. Active state is derived
+when restoring the layout; it is not serialized separately.
+
+`Controls.xaml` distinguishes active, selected-inactive and unselected tabs.
+The same active colors apply to tool captions, their bottom tabs, auto-hide
+flyouts and floating headers. Customize `Dps.ActiveTabBackground`,
+`Dps.ActiveTabForeground`, `Dps.ActiveTabBorder`, `Dps.InactiveTabBackground`,
+`Dps.InactiveTabForeground` and `Dps.InactiveTabBorder` in each palette XAML or
+in workspace resources. Custom header templates can bind to `Item.IsActive`.
+
 Palette brush keys: `Dps.Background`, `Dps.Surface`, `Dps.Header`, `Dps.Foreground`,
 `Dps.Muted`, `Dps.Border`, `Dps.Hover`, `Dps.Accent`, `Dps.Selected`, `Dps.Preview`,
 and `Dps.Success`. Override these in workspace resources to match your app.
@@ -372,7 +387,9 @@ The sample's `--smoke` path produces `wpf-sample-light.png`,
 `wpf-tool-group-dark.png`, `wpf-tool-group-light.png`,
 `wpf-tool-group-autohide.png`, `wpf-tool-group-flyout.png`,
 `wpf-sample-greendark.png`, `wpf-docking-guides-greendark.png`,
-`wpf-tool-group-greendark.png`, `wpf-tool-group-flyout-greendark.png`, and the compatibility filename
+`wpf-tool-group-greendark.png`, `wpf-tool-group-flyout-greendark.png`,
+`wpf-active-pane-light.png`, `wpf-active-pane-dark.png`,
+`wpf-active-pane-greendark.png`, and the compatibility filename
 `wpf-sample.png`. Screenshots capture the client content using its current DPI.
 The smoke path checks that the normal preview fits, and that the minimum-size
 preview scrolls to its measurement cards. It also checks group auto-hide, snapshot
@@ -393,11 +410,11 @@ CI has a separate Ubuntu job for these tests.
 
 | Check | Result |
 | --- | --- |
-| Native WPF regressions, .NET Framework 4.8 | 131 passed |
-| Native WPF regressions, .NET 6 | 131 passed |
-| Native WPF regressions, .NET Core 3.1 | 131 passed |
+| Native WPF regressions, .NET Framework 4.8 | 139 passed |
+| Native WPF regressions, .NET 6 | 139 passed |
+| Native WPF regressions, .NET Core 3.1 | 139 passed |
 | Shared drop-target geometry, .NET 6 | 53 passed |
-| Sample build and smoke, all three desktop runtimes | Passed; nineteen screenshots per runtime |
+| Sample build and smoke, all three desktop runtimes | Passed; twenty-two screenshots per runtime |
 | WPF NuGet package | Contains assemblies for all three target frameworks |
 
 Verification used the installed SDK 9.0.316 through its explicit CLI entry point.
@@ -433,6 +450,10 @@ GreenDark regressions cycle through all three themes with a floating window,
 open tool flyout and highlighted docking target, checking color restoration,
 content/state preservation and local metric overrides. Smoke also selects
 GreenDark through the sample theme menu before rendering its four screenshots.
+Active-header regressions check keyboard/content focus between independent split
+groups, clicking an already-selected title, tab cycling, tool captions/bottom tabs,
+floating activation, flyout dismissal, live theme/local brush changes and active
+state notifications through hiding, removal and snapshot restoration.
 Close-shortcut regressions check disabled/unconsumed Ctrl+W by default, runtime
 enable/disable and binding updates, close cancellation, and independent Ctrl+F4
 behavior for docked and floating panes.

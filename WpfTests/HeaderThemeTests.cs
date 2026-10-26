@@ -43,7 +43,7 @@ namespace DockPanelSuite.Wpf.Tests
             var dark = DockThemeResources.Create(DockTheme.Dark);
             StringAssert.EndsWith($"/{theme}.xaml", palette.Source.OriginalString);
             CollectionAssert.AreEquivalent(dark.Keys, palette.Keys);
-            Assert.AreEqual(17, palette.Count);
+            Assert.AreEqual(23, palette.Count);
             foreach (var key in palette.Keys)
             {
                 Assert.IsInstanceOf<SolidColorBrush>(palette[key]);
@@ -71,7 +71,7 @@ namespace DockPanelSuite.Wpf.Tests
                 Assert.AreSame(_output, _workspace.OpenAutoHideItem);
                 Assert.AreEqual(DockState.AutoHide, _solution.State);
                 Assert.AreEqual(ColorOf(palette["Dps.Surface"]), ColorOf(floating.Background));
-                Assert.AreEqual(ColorOf(palette["Dps.Foreground"]), ColorOf(Part<Path>(caption, "PinGlyph").Stroke));
+                Assert.AreEqual(ColorOf(palette["Dps.ActiveTabForeground"]), ColorOf(Part<Path>(caption, "PinGlyph").Stroke));
                 Assert.AreEqual(new Thickness(11), Part<TextBlock>(caption, "Title").Margin);
                 var grid = ((Grid)_workspace.Content).Children.OfType<Grid>().Single();
                 var bounds = _workspace.GroupBounds(_document);
@@ -183,7 +183,7 @@ namespace DockPanelSuite.Wpf.Tests
             _workspace.Theme = DockTheme.Dark; Pump();
             Assert.AreSame(caption, Caption(DockState.AutoHide));
             Assert.AreNotEqual(before, ((SolidColorBrush)glyph.Stroke).Color);
-            Assert.AreEqual(((SolidColorBrush)_workspace.FindResource("Dps.Foreground")).Color, ((SolidColorBrush)glyph.Stroke).Color);
+            Assert.AreEqual(((SolidColorBrush)_workspace.FindResource("Dps.ActiveTabForeground")).Color, ((SolidColorBrush)glyph.Stroke).Color);
             Assert.AreEqual(new Thickness(11), Part<TextBlock>(caption, "Title").Margin);
             _workspace.Theme = DockTheme.Light; Pump();
             Assert.AreEqual(before, ((SolidColorBrush)glyph.Stroke).Color);

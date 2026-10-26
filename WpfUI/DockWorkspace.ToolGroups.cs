@@ -73,6 +73,7 @@ namespace DockPanelSuite.Wpf
                 var page = new TabItem { Header = Header(item, toolTab: tool), Content = _presenters[item], Tag = item };
                 page.SetResourceReference(StyleProperty, tool ? "Dps.ToolTabItem" : "Dps.TabItem");
                 page.SetBinding(AutomationProperties.NameProperty, new Binding(nameof(DockItem.Title)) { Source = item });
+                page.GotKeyboardFocus += (sender, args) => ActivateFromContent(item);
                 tabs.Items.Add(page);
             }
             string selectedId = flyout ? _autoHideItem?.Id : group.SelectedId;

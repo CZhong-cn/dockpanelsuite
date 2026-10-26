@@ -15,7 +15,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="local:DockItemHeader">
           <!-- Change column assignments here to reorder the title, pin and close. -->
-          <Grid>
+          <Grid Background="{TemplateBinding Background}">
             <Grid.ColumnDefinitions>
               <ColumnDefinition x:Name="TitleColumn" Width="Auto" />
               <ColumnDefinition Width="Auto" />
@@ -29,7 +29,7 @@
             <Button x:Name="Pin" Grid.Column="1" Visibility="Collapsed" Style="{DynamicResource Dps.IconButton}"
                     ToolTip="自动隐藏整组 / Auto-hide group" AutomationProperties.Name="自动隐藏整组 / Auto-hide group"
                     Command="{x:Static local:DockItemHeader.TogglePinCommand}"
-                    CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}">
+                    CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Foreground="{TemplateBinding Foreground}">
               <Path x:Name="PinGlyph" Data="{DynamicResource Dps.PinGeometry}" Width="12" Height="14"
                     Stretch="Uniform" StrokeThickness="1.3" RenderTransformOrigin="0.5,0.5"
                     Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -38,7 +38,7 @@
                     ToolTip="隐藏面板 / Close pane (Ctrl+F4)" AutomationProperties.Name="隐藏面板 / Close pane (Ctrl+F4)"
                     IsEnabled="{Binding Item.CanClose, RelativeSource={RelativeSource TemplatedParent}}"
                     Command="{x:Static local:DockItemHeader.CloseCommand}"
-                    CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" />
+                    CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Foreground="{TemplateBinding Foreground}" />
           </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsToolPaneHeader" Value="True">
@@ -56,6 +56,23 @@
               <Setter TargetName="Pin" Property="AutomationProperties.Name" Value="固定整组 / Pin group" />
               <Setter TargetName="PinGlyph" Property="RenderTransform"><Setter.Value><RotateTransform Angle="45" /></Setter.Value></Setter>
             </DataTrigger>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsToolPaneHeader, RelativeSource={RelativeSource Self}}" Value="True" />
+                <Condition Binding="{Binding Item.IsActive, RelativeSource={RelativeSource Self}}" Value="True" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Foreground" Value="{DynamicResource Dps.ActiveTabForeground}" />
+            </MultiDataTrigger>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Item.State, RelativeSource={RelativeSource Self}}" Value="{x:Static local:DockState.Float}" />
+                <Condition Binding="{Binding Item.IsActive, RelativeSource={RelativeSource Self}}" Value="True" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Background" Value="{DynamicResource Dps.ActiveTabBackground}" />
+              <Setter Property="Foreground" Value="{DynamicResource Dps.ActiveTabForeground}" />
+            </MultiDataTrigger>
+            <Trigger SourceName="Pin" Property="IsMouseOver" Value="True"><Setter TargetName="Pin" Property="Foreground" Value="{DynamicResource Dps.Foreground}" /></Trigger>
+            <Trigger SourceName="Close" Property="IsMouseOver" Value="True"><Setter TargetName="Close" Property="Foreground" Value="{DynamicResource Dps.Foreground}" /></Trigger>
             <Trigger Property="IsToolTab" Value="True">
               <Setter TargetName="Pin" Property="Visibility" Value="Collapsed" />
               <Setter TargetName="Close" Property="Visibility" Value="Collapsed" />

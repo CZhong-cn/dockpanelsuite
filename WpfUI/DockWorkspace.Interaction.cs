@@ -163,7 +163,10 @@ namespace DockPanelSuite.Wpf
         private void SetActiveItem(DockItem item)
         {
             if (ReferenceEquals(item, ActiveItem)) return;
+            var previous = ActiveItem;
             ActiveItem = item;
+            previous?.SetActive(false);
+            item?.SetActive(true);
             ActiveItemChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -289,6 +292,8 @@ namespace DockPanelSuite.Wpf
             {
                 armed = false;
                 if (!(args.OriginalSource is DependencyObject source) || !DockItemHeader.GetIsDragHandle(source)) return;
+                SetActiveItem(item);
+                FocusContent(item);
                 if (args.ClickCount == 2)
                 {
                     if (item.State == DockState.Float) Pin(item); else Float(item);

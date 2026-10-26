@@ -27,4 +27,10 @@
   <SolidColorBrush x:Key="Dps.GuideGlyph" Color="#FFFFFF" po:Freeze="True" />
   <SolidColorBrush x:Key="Dps.GuideHover" Color="#12C785" po:Freeze="True" />
   <SolidColorBrush x:Key="Dps.GuideHoverGlyph" Color="#141414" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.ActiveTabBackground" Color="#4D12C785" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.ActiveTabForeground" Color="#FFFFFF" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.ActiveTabBorder" Color="#12C785" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.InactiveTabBackground" Color="#333333" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.InactiveTabForeground" Color="#A4A4A4" po:Freeze="True" />
+  <SolidColorBrush x:Key="Dps.InactiveTabBorder" Color="#4F4F4F" po:Freeze="True" />
 </ResourceDictionary>
