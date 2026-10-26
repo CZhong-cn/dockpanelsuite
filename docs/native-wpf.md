@@ -1,6 +1,6 @@
 # Native WPF docking
 
-An independent native WPF library for `netcoreapp3.1` and `net6.0-windows`.
+An independent native WPF library for `net48`, `netcoreapp3.1` and `net6.0-windows`.
 WinForms core and all themes continue to retain the existing targets. WPF uses
 `DockPanelSuite.Wpf`, assembly `WpfUI`, package `DockPanelSuite.Wpf`.
 
@@ -26,7 +26,10 @@ connection or image-processing implementation in this docking demo.
 
 ## Add a workspace
 
-Reference `WpfUI/WpfUI.csproj`:
+Reference `WpfUI/WpfUI.csproj` from a WPF application targeting .NET Framework 4.8,
+.NET Core 3.1 or .NET 6. The `DockPanelSuite.Wpf` NuGet package includes a separate
+assembly for each target, including `lib/net48/WpfUI.dll`. The same docking API
+and XAML themes are available on all three frameworks.
 
 ```xml
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -342,14 +345,19 @@ new documents are retained as hidden items and can be found through the pane men
 
 CI installs SDKs 6.0.428 and 3.1.426, including the 3.1 desktop runtime. Use Visual Studio 2022
 MSBuild for the full legacy solution. Required framework reference assemblies
-and desktop resource dependencies restore from NuGet.
+and desktop resource dependencies restore from NuGet. To build the WPF projects
+for `net48` locally, install the .NET Framework 4.8 Developer Pack; running the
+sample or tests requires the .NET Framework 4.8 runtime. WPF CI runs the same
+regressions and screenshot smoke checks on all three frameworks.
 
 ```powershell
 msbuild WinFormsUI.Docking.sln /restore /m /p:Configuration=Release
+dotnet test WpfTests/WpfTests.csproj -c Release -f net48
 dotnet test WpfTests/WpfTests.csproj -c Release -f net6.0-windows
 dotnet test WpfTests/WpfTests.csproj -c Release -f netcoreapp3.1
 dotnet test Tests.Modern/Tests.Modern.csproj -c Release -f net6.0-windows
 dotnet test Tests.Modern/Tests.Modern.csproj -c Release -f netcoreapp3.1
+dotnet run --project WpfSample/WpfSample.csproj -f net48
 dotnet run --project WpfSample/WpfSample.csproj -f net6.0-windows
 ```
 
@@ -385,13 +393,15 @@ CI has a separate Ubuntu job for these tests.
 
 | Check | Result |
 | --- | --- |
+| Native WPF regressions, .NET Framework 4.8 | 131 passed |
 | Native WPF regressions, .NET 6 | 131 passed |
 | Native WPF regressions, .NET Core 3.1 | 131 passed |
 | Shared drop-target geometry, .NET 6 | 53 passed |
-| Sample build and smoke, both desktop runtimes | Passed; nineteen screenshots per runtime |
+| Sample build and smoke, all three desktop runtimes | Passed; nineteen screenshots per runtime |
+| WPF NuGet package | Contains assemblies for all three target frameworks |
 
 Verification used the installed SDK 9.0.316 through its explicit CLI entry point.
-The WPF target frameworks remain .NET Core 3.1 and .NET 6. Test reports
+The WPF target frameworks are .NET Framework 4.8, .NET Core 3.1 and .NET 6. Test reports
 and screenshots are under the ignored `artifacts/` directory.
 
 Regressions cover the latest floating bounds after a user close, focus transfer
@@ -442,4 +452,4 @@ Visual Studio theme parity are not implemented. Auto-hide flyouts are click base
 not hover/timer based. Keyboard navigation, real mouse-drag behavior and
 multi-monitor/DPI behavior still require Windows acceptance testing.
 
-The requested runtime versions remain outside Microsoft's current support window.
+.NET Core 3.1 and .NET 6 remain outside Microsoft's current support window.

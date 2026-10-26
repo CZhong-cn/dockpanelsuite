@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        framework: [netcoreapp3.1, net6.0-windows]
+        framework: [net48, netcoreapp3.1, net6.0-windows]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -55,6 +55,7 @@ jobs:
       - name: Build native WPF sample
         run: dotnet build WpfSample/WpfSample.csproj -c Release -f ${{ matrix.framework }} -p:TargetFrameworks=${{ matrix.framework }}
       - name: Test WinForms on the requested runtime
+        if: matrix.framework != 'net48'
         run: dotnet test Tests.Modern/Tests.Modern.csproj -c Release -f ${{ matrix.framework }} -p:TargetFrameworks=${{ matrix.framework }} --logger trx --results-directory artifacts/tests/winforms
       - name: Test native WPF on the requested runtime
         run: dotnet test WpfTests/WpfTests.csproj -c Release -f ${{ matrix.framework }} -p:TargetFrameworks=${{ matrix.framework }} --logger trx --results-directory artifacts/tests/wpf

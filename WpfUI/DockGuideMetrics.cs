@@ -25,6 +25,16 @@ namespace DockPanelSuite.Wpf
         public bool Equals(DockGuideMetrics other) => other != null && TileSize == other.TileSize && Step == other.Step &&
             PlateSize == other.PlateSize && ScaleThreshold == other.ScaleThreshold && OuterMargin == other.OuterMargin;
         public override bool Equals(object obj) => Equals(obj as DockGuideMetrics);
-        public override int GetHashCode() => HashCode.Combine(TileSize, Step, PlateSize, ScaleThreshold, OuterMargin);
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = TileSize.GetHashCode();
+                hash = hash * 397 ^ Step.GetHashCode();
+                hash = hash * 397 ^ PlateSize.GetHashCode();
+                hash = hash * 397 ^ ScaleThreshold.GetHashCode();
+                return hash * 397 ^ OuterMargin.GetHashCode();
+            }
+        }
     }
 }
