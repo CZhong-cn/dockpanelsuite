@@ -108,7 +108,7 @@ namespace DockPanelSuite.Wpf.Tests
             _workspace.Dock(fourth, _second);
             _workspace.Activate(_second); _workspace.Activate(_first); Pump();
             var before = Snapshot();
-            Assert.AreEqual(3, before.Version);
+            Assert.AreEqual(5, before.Version);
             var root = (DockSplit)before.Regions.Single(region => region.State == DockState.Document).Root;
             _workspace.Dock(_second, _first); _workspace.Hide(third); Restore(before); Pump();
             var restored = Snapshot();
@@ -187,7 +187,7 @@ namespace DockPanelSuite.Wpf.Tests
             _workspace.Dock(_second, _first, DockPosition.Right);
             Restore(layout); Pump();
             Assert.AreSame(ViewFor(_first), ViewFor(_second));
-            Assert.AreEqual(3, Snapshot().Version);
+            Assert.AreEqual(5, Snapshot().Version);
         }
 
         [Test]

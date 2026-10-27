@@ -4,7 +4,11 @@
                     xmlns:local="clr-namespace:DockPanelSuite.Wpf">
   <FontFamily x:Key="Dps.FontFamily">Segoe UI</FontFamily>
   <sys:Double x:Key="Dps.FontSize">12</sys:Double>
-  <GridLength x:Key="Dps.SplitterLength">5</GridLength>
+  <GridLength x:Key="Dps.SplitterLength">2</GridLength>
+  <Thickness x:Key="Dps.SplitterVerticalMargin">-3,0,-3,0</Thickness>
+  <Thickness x:Key="Dps.SplitterHorizontalMargin">0,-3,0,-3</Thickness>
+  <Thickness x:Key="Dps.SplitterVerticalInset">3,0,3,0</Thickness>
+  <Thickness x:Key="Dps.SplitterHorizontalInset">0,3,0,3</Thickness>
   <sys:Double x:Key="Dps.PaneMinWidth">80</sys:Double>
   <sys:Double x:Key="Dps.PaneMinHeight">60</sys:Double>
   <sys:Double x:Key="Dps.DocumentMinWidth">120</sys:Double>

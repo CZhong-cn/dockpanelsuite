@@ -29,6 +29,8 @@ namespace DockPanelSuite.Wpf
         /// <summary>Enables Ctrl+W to close the active pane. Disabled by default; Ctrl+F4 is independent.</summary>
         public bool IsCtrlWEnabled { get => (bool)GetValue(IsCtrlWEnabledProperty); set => SetValue(IsCtrlWEnabledProperty, value); }
 
+        public event KeyEventHandler PanePreviewKeyDown;
+
         public DockTheme Theme { get => (DockTheme)GetValue(ThemeProperty); set => SetValue(ThemeProperty, value); }
         public DockItem OpenAutoHideItem => _autoHideItem;
 
@@ -85,6 +87,8 @@ namespace DockPanelSuite.Wpf
         {
             RequireItem(item);
             if (!IsEdge(edge)) throw new ArgumentException("Choose a tool-pane edge.", nameof(edge));
+            VerifyPlacementAllowed(item, DockState.AutoHide);
+            VerifyPlacementAllowed(item, edge);
             item.LastDockState = edge;
             AutoHide(item);
         }
@@ -120,6 +124,15 @@ namespace DockPanelSuite.Wpf
             FocusContent(item);
         }
 
+        public void SelectTab(DockItem item)
+        {
+            RequireItem(item);
+            if (!Docked(item.State)) return;
+            var group = FindGroup(item);
+            if (group != null && _tabs.TryGetValue(group, out var tabs))
+                tabs.SelectedItem = tabs.Items.Cast<TabItem>().FirstOrDefault(tab => tab.Tag == item);
+        }
+
         public void ActivateNextDocument(bool reverse = false)
         {
             Dispatcher.VerifyAccess();
@@ -136,6 +149,7 @@ namespace DockPanelSuite.Wpf
             RequireItem(item); RequireItem(before);
             if (item == before) return;
             if (!Docked(item.State) || item.State != before.State) throw new ArgumentException("Items must share a visible dock region.", nameof(before));
+            VerifyPlacementAllowed(item, item.State);
             CaptureGeometry();
             bool preserveSelection = FindGroup(item)?.SelectedId == item.Id || ActiveItem == item;
             var group = FindGroup(before);
@@ -203,6 +217,12 @@ namespace DockPanelSuite.Wpf
 
         private void OnWorkspaceKeyDown(object sender, KeyEventArgs args)
         {
+            PanePreviewKeyDown?.Invoke(this, args);
+            if (args.Handled) return;
+            if (args.Key == Key.Escape && _floatingDrag != null)
+            {
+                EndFloatingDrag(null, cancel: true); args.Handled = true; return;
+            }
             var modifiers = Keyboard.Modifiers;
             bool control = (modifiers & ModifierKeys.Control) != 0;
             if (control && args.Key == Key.Tab)
@@ -267,21 +287,27 @@ namespace DockPanelSuite.Wpf
                 (sender, args) => { args.CanExecute = item.Owner == this && item.CanClose; args.Handled = true; }));
             header.CommandBindings.Add(new CommandBinding(DockItemHeader.TogglePinCommand,
                 (sender, args) => { ToggleGroupPin(item); args.Handled = true; },
-                (sender, args) => { args.CanExecute = item.Owner == this && (IsEdge(item.State) || item.State == DockState.AutoHide); args.Handled = true; }));
+                (sender, args) => { args.CanExecute = CanTogglePin(item); args.Handled = true; }));
             var menu = new ContextMenu();
             menu.Resources.MergedDictionaries.Add(Resources);
             menu.SetResourceReference(StyleProperty, "Dps.Menu");
             foreach (DockState state in new[] { DockState.Document, DockState.Left, DockState.Right, DockState.Top, DockState.Bottom, DockState.Float })
             {
                 var command = new MenuItem { Header = RegionName(state) };
+                if (IsEdge(state))
+                    command.SetBinding(IsEnabledProperty, new System.Windows.Data.Binding(nameof(DockItem.CanDockToSides)) { Source = item });
                 command.Click += (sender, args) => Show(item, state);
                 menu.Items.Add(command);
             }
-            if (IsEdge(item.LastDockState))
+            if (Docked(item.LastDockState) && (item.CanAutoHide || item.State == DockState.AutoHide))
             {
                 menu.Items.Add(new Separator());
-                var pin = new MenuItem { Header = item.State == DockState.AutoHide ? "固定整组 / Pin group" : "自动隐藏整组 / Auto-hide group" };
-                pin.Click += (sender, args) => ToggleGroupPin(item);
+                var pin = new MenuItem
+                {
+                    Header = item.State == DockState.AutoHide ? "固定整组 / Pin group" : "自动隐藏整组 / Auto-hide group",
+                    Command = DockItemHeader.TogglePinCommand,
+                    CommandTarget = header
+                };
                 menu.Items.Add(pin);
             }
             header.ContextMenu = menu;
@@ -299,11 +325,32 @@ namespace DockPanelSuite.Wpf
                     if (item.State == DockState.Float) Pin(item); else Float(item);
                     args.Handled = true;
                 }
-                else { start = args.GetPosition(header); armed = true; }
+                else
+                {
+                    start = args.GetPosition(header);
+                    if (BeginFloatingDrag(item, header, header.PointToScreen(start))) args.Handled = true;
+                    else armed = true;
+                }
             };
-            header.MouseLeftButtonUp += (sender, args) => armed = false;
+            header.MouseLeftButtonUp += (sender, args) =>
+            {
+                armed = false;
+                if (_floatingDrag?.Header != header) return;
+                EndFloatingDrag(header.PointToScreen(args.GetPosition(header)));
+                args.Handled = true;
+            };
+            header.LostMouseCapture += (sender, args) =>
+            {
+                if (_floatingDrag?.Header == header) EndFloatingDrag(null);
+            };
             header.MouseMove += (sender, args) =>
             {
+                if (_floatingDrag?.Header == header)
+                {
+                    if (args.LeftButton == MouseButtonState.Pressed) UpdateFloatingDrag(header.PointToScreen(args.GetPosition(header)));
+                    else EndFloatingDrag(null);
+                    args.Handled = true; return;
+                }
                 if (!armed || args.LeftButton != MouseButtonState.Pressed) { armed = false; return; }
                 var current = args.GetPosition(header);
                 if (Math.Abs(current.X - start.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(current.Y - start.Y) < SystemParameters.MinimumVerticalDragDistance) return;

@@ -83,7 +83,7 @@
   </Style>
   <Style x:Key="Dps.TabItem" TargetType="TabItem">
     <Setter Property="Foreground" Value="{DynamicResource Dps.Muted}" />
-    <Setter Property="Padding" Value="7,4" />
+    <Setter Property="Padding" Value="4,2" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TabItem">
@@ -144,7 +144,7 @@
     </Setter>
   </Style>
   <Style x:Key="Dps.ToolTabItem" TargetType="TabItem" BasedOn="{StaticResource Dps.TabItem}">
-    <Setter Property="Padding" Value="3,1" />
+    <Setter Property="Padding" Value="2,0" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TabItem">
@@ -183,13 +183,42 @@
   <DataTemplate x:Key="Dps.RailTitle">
     <TextBlock Text="{Binding}" MaxWidth="160" TextTrimming="CharacterEllipsis" />
   </DataTemplate>
+  <Style x:Key="Dps.SplitterPreview" TargetType="Control">
+    <Setter Property="Padding" Value="{Binding AdornedElement.Padding, RelativeSource={RelativeSource AncestorType={x:Type Adorner}}}" />
+    <Setter Property="Background" Value="{Binding AdornedElement.Background, RelativeSource={RelativeSource AncestorType={x:Type Adorner}}}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Control">
+          <Border x:Name="Grip" Margin="{TemplateBinding Padding}" Background="{TemplateBinding Background}" Opacity="0.7" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
   <Style x:Key="Dps.Splitter" TargetType="GridSplitter">
     <Setter Property="HorizontalAlignment" Value="Stretch" /><Setter Property="VerticalAlignment" Value="Stretch" />
     <Setter Property="ResizeBehavior" Value="PreviousAndNext" /><Setter Property="ShowsPreview" Value="True" />
+    <Setter Property="PreviewStyle" Value="{DynamicResource Dps.SplitterPreview}" />
     <Setter Property="Background" Value="{DynamicResource Dps.Border}" />
+    <Setter Property="Margin" Value="{DynamicResource Dps.SplitterVerticalMargin}" />
+    <Setter Property="Padding" Value="{DynamicResource Dps.SplitterVerticalInset}" />
+    <Setter Property="Panel.ZIndex" Value="5" />
     <Setter Property="Focusable" Value="True" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="KeyboardNavigation.TabNavigation" Value="None" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="GridSplitter">
+          <Grid Background="Transparent">
+            <Border x:Name="Grip" Background="{TemplateBinding Background}" Margin="{TemplateBinding Padding}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
     <Style.Triggers>
+      <Trigger Property="ResizeDirection" Value="Rows">
+        <Setter Property="Margin" Value="{DynamicResource Dps.SplitterHorizontalMargin}" />
+        <Setter Property="Padding" Value="{DynamicResource Dps.SplitterHorizontalInset}" />
+      </Trigger>
       <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource Dps.Accent}" /></Trigger>
       <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="Background" Value="{DynamicResource Dps.Accent}" /></Trigger>
     </Style.Triggers>

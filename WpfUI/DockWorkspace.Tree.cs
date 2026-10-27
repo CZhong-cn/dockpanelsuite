@@ -21,6 +21,9 @@ namespace DockPanelSuite.Wpf
             if (!Enum.IsDefined(typeof(DockPosition), position)) throw new ArgumentOutOfRangeException(nameof(position));
             if (!Finite(proportion) || proportion < .05 || proportion > .95) throw new ArgumentOutOfRangeException(nameof(proportion));
             if (!Docked(target.State)) throw new ArgumentException("The target must be docked and visible.", nameof(target));
+            VerifyPlacementAllowed(item, target.State);
+            if (position != DockPosition.Center && !item.CanDockToSides)
+                throw new InvalidOperationException("The pane does not allow side splits.");
             CaptureGeometry();
             var group = FindGroup(target);
             var region = target.State;
@@ -87,6 +90,7 @@ namespace DockPanelSuite.Wpf
         private void EnsureItemGroup(DockItem item, DockState state)
         {
             var region = Docked(state) ? state : item.LastDockState;
+            RememberRegion(region);
             var existing = FindGroup(item);
             if (existing != null && _roots.TryGetValue(region, out var root) && Groups(root).Contains(existing)) return;
             RemoveFromGroups(item.Id);
@@ -132,8 +136,9 @@ namespace DockPanelSuite.Wpf
             return root;
         }
 
-        private void AddZone(DockState state, int row, int column, int span = 1)
+        private void AddZone(DockState state, RegionArea area)
         {
+            int row = area.Row, column = area.Column;
             bool visible = state == DockState.Document || _items.Any(item => item.State == state);
             if (!visible)
             {
@@ -145,7 +150,7 @@ namespace DockPanelSuite.Wpf
             if (state == DockState.Left || state == DockState.Right) _grid.ColumnDefinitions[column].SetResourceReference(ColumnDefinition.MinWidthProperty, "Dps.PaneMinWidth");
             else if (state != DockState.Document) _grid.RowDefinitions[row].SetResourceReference(RowDefinition.MinHeightProperty, "Dps.PaneMinHeight");
             var view = RenderNode(_roots[state], state, true);
-            Place(view, row, column, span);
+            Place(view, area);
         }
 
         private FrameworkElement RenderNode(DockLayoutNode node, DockState state, bool allowEmpty = false)

@@ -15,18 +15,20 @@
       <Setter.Value>
         <ControlTemplate TargetType="local:DockItemHeader">
           <!-- Change column assignments here to reorder the title, pin and close. -->
-          <Grid Background="{TemplateBinding Background}">
+          <Grid Background="Transparent" local:DockItemHeader.IsDragHandle="True">
             <Grid.ColumnDefinitions>
               <ColumnDefinition x:Name="TitleColumn" Width="Auto" />
               <ColumnDefinition Width="Auto" />
               <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+            <Border Grid.ColumnSpan="3" Background="{TemplateBinding Background}" IsHitTestVisible="False" />
             <TextBlock x:Name="Title" Grid.Column="0" Text="{Binding Item.Title, RelativeSource={RelativeSource TemplatedParent}}"
                        ToolTip="{Binding Item.Title, RelativeSource={RelativeSource TemplatedParent}}"
                        Margin="{DynamicResource Dps.HeaderTitleMargin}" MaxWidth="{DynamicResource Dps.TabTitleMaxWidth}"
                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Cursor="SizeAll"
                        local:DockItemHeader.IsDragHandle="True" />
             <Button x:Name="Pin" Grid.Column="1" Visibility="Collapsed" Style="{DynamicResource Dps.IconButton}"
+                    local:DockItemHeader.IsDragHandle="False"
                     ToolTip="自动隐藏整组 / Auto-hide group" AutomationProperties.Name="自动隐藏整组 / Auto-hide group"
                     Command="{x:Static local:DockItemHeader.TogglePinCommand}"
                     CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Foreground="{TemplateBinding Foreground}">
@@ -35,21 +37,29 @@
                     Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
             </Button>
             <Button x:Name="Close" Grid.Column="2" Content="×" Style="{DynamicResource Dps.IconButton}"
+                    local:DockItemHeader.IsDragHandle="False"
                     ToolTip="隐藏面板 / Close pane (Ctrl+F4)" AutomationProperties.Name="隐藏面板 / Close pane (Ctrl+F4)"
                     IsEnabled="{Binding Item.CanClose, RelativeSource={RelativeSource TemplatedParent}}"
                     Command="{x:Static local:DockItemHeader.CloseCommand}"
                     CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Foreground="{TemplateBinding Foreground}" />
           </Grid>
           <ControlTemplate.Triggers>
+            <DataTrigger Binding="{Binding Item.ShowCloseButton, RelativeSource={RelativeSource Self}}" Value="False">
+              <Setter TargetName="Close" Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
             <Trigger Property="IsToolPaneHeader" Value="True">
               <Setter Property="Margin" Value="{DynamicResource Dps.ToolPaneHeaderMargin}" />
               <Setter TargetName="TitleColumn" Property="Width" Value="*" />
               <Setter TargetName="Title" Property="MaxWidth" Value="{DynamicResource Dps.ToolPaneTitleMaxWidth}" />
             </Trigger>
+            <DataTrigger Binding="{Binding Item.State, RelativeSource={RelativeSource Self}}" Value="{x:Static local:DockState.Float}"><Setter TargetName="Pin" Property="Visibility" Value="Visible" /></DataTrigger>
             <DataTrigger Binding="{Binding Item.State, RelativeSource={RelativeSource Self}}" Value="{x:Static local:DockState.Left}"><Setter TargetName="Pin" Property="Visibility" Value="Visible" /></DataTrigger>
             <DataTrigger Binding="{Binding Item.State, RelativeSource={RelativeSource Self}}" Value="{x:Static local:DockState.Right}"><Setter TargetName="Pin" Property="Visibility" Value="Visible" /></DataTrigger>
             <DataTrigger Binding="{Binding Item.State, RelativeSource={RelativeSource Self}}" Value="{x:Static local:DockState.Top}"><Setter TargetName="Pin" Property="Visibility" Value="Visible" /></DataTrigger>
             <DataTrigger Binding="{Binding Item.State, RelativeSource={RelativeSource Self}}" Value="{x:Static local:DockState.Bottom}"><Setter TargetName="Pin" Property="Visibility" Value="Visible" /></DataTrigger>
+            <DataTrigger Binding="{Binding Item.CanAutoHide, RelativeSource={RelativeSource Self}}" Value="False">
+              <Setter TargetName="Pin" Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
             <DataTrigger Binding="{Binding Item.State, RelativeSource={RelativeSource Self}}" Value="{x:Static local:DockState.AutoHide}">
               <Setter TargetName="Pin" Property="Visibility" Value="Visible" />
               <Setter TargetName="Pin" Property="ToolTip" Value="固定整组 / Pin group" />

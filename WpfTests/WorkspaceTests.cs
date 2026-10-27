@@ -114,7 +114,7 @@ namespace DockPanelSuite.Wpf.Tests
             Assert.AreEqual(1, _workspace.Items.Count);
         }
 
-        [TestCase("duplicate"), TestCase("version"), TestCase("bounds"), TestCase("previous"), TestCase("size")]
+        [TestCase("duplicate"), TestCase("version"), TestCase("bounds"), TestCase("previous"), TestCase("size"), TestCase("autoHideEdge")]
         public void InvalidSnapshotsDoNotChangeLiveState(string defect)
         {
             var layout = Snapshot();
@@ -125,6 +125,7 @@ namespace DockPanelSuite.Wpf.Tests
                 case "bounds": layout.Items[0].Width = double.NaN; break;
                 case "previous": layout.Items[0].LastDockState = DockState.Float; break;
                 case "size": layout.LeftWidth = -1; break;
+                case "autoHideEdge": layout.Items[0].AutoHideEdge = DockState.Document; break;
             }
             Assert.Throws<InvalidDataException>(() => Restore(layout));
             Assert.AreEqual(DockState.Document, _item.State);
@@ -221,10 +222,10 @@ namespace DockPanelSuite.Wpf.Tests
         public void InvalidAutoHideDoesNotClaimOrRegisterTheItem()
         {
             var other = new DockItem("other", "Other", new TextBox());
-            Assert.Throws<ArgumentException>(() => _workspace.Add(other, DockState.AutoHide));
+            Assert.Throws<ArgumentOutOfRangeException>(() => _workspace.Add(other, (DockState)999));
             Assert.AreEqual(1, _workspace.Items.Count);
             _workspace.Add(other);
-            Assert.Throws<ArgumentException>(() => _workspace.AutoHide(other));
+            Assert.Throws<ArgumentException>(() => _workspace.AutoHide(other, DockState.Document));
             Assert.AreEqual(DockState.Document, other.State);
         }
 

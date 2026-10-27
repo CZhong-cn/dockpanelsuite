@@ -187,6 +187,7 @@ namespace DockPanelSuite.Wpf.Tests
         [Test]
         public void InvalidGroupCommandsLeaveTheLayoutUnchanged()
         {
+            _workspace.Float(_document);
             Assert.Throws<ArgumentException>(() => _workspace.AutoHideGroup(_document));
             Assert.Throws<ArgumentException>(() => _workspace.PinGroup(_solution));
             Assert.AreEqual(DockState.Right, _output.State); Assert.AreEqual(DockState.Right, _solution.State);

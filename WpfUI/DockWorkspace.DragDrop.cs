@@ -50,7 +50,15 @@ namespace DockPanelSuite.Wpf
                 Grid.SetRowSpan(_dockGuides, 5); Grid.SetColumnSpan(_dockGuides, 5);
                 Panel.SetZIndex(_dockGuides, 30); _grid.Children.Add(_dockGuides);
             }
-            _dockGuides.Update(point, size, bounds);
+            var groupState = (DockState)_tabs[_dragGroup].Tag;
+            _dockGuides.Update(point, size, bounds, target => target.IsOuter
+                ? AllowsPlacement(item, target.State)
+                : AllowsPlacement(item, groupState) && (target.State == DockState.Document || item.CanDockToSides));
+            if (_dockGuides.IsBlockedTarget(point) || !AllowsPlacement(item, groupState))
+            {
+                if (_dropPreview != null) _dropPreview.Visibility = Visibility.Collapsed;
+                return null;
+            }
             var targetGuide = _dockGuides.HoveredTarget;
             _dragOuter = targetGuide?.IsOuter == true;
             var direction = targetGuide?.State ?? DockState.Document;
@@ -61,7 +69,7 @@ namespace DockPanelSuite.Wpf
                 Grid.SetRowSpan(_dropPreview, 5); Grid.SetColumnSpan(_dropPreview, 5);
                 Panel.SetZIndex(_dropPreview, 20); _grid.Children.Add(_dropPreview);
             }
-            var preview = _dragOuter ? OuterPreviewBounds(direction) : SplitPreviewBounds(bounds, direction, item);
+            var preview = _dragOuter ? RegionPreviewBounds(direction, item) : SplitPreviewBounds(bounds, direction, item);
             _dropPreview.Tag = direction; _dropPreview.Visibility = Visibility.Visible;
             var inset = (Thickness)FindResource("Dps.DropPreviewInset");
             _dropPreview.Width = Math.Max(0, preview.Width - inset.Left - inset.Right); _dropPreview.Height = Math.Max(0, preview.Height - inset.Top - inset.Bottom);
@@ -92,7 +100,9 @@ namespace DockPanelSuite.Wpf
             if (!direction.HasValue) return false;
             if (reorder)
             {
-                if (FindGroup(item) != FindGroup(before)) Dock(item, before);
+                if (!AllowsPlacement(item, before.State)) return false;
+                // Floating panes retain their saved group but must first return to its visible dock state.
+                if (item.State != before.State || FindGroup(item) != FindGroup(before)) Dock(item, before);
                 MoveBefore(item, before); Activate(item);
             }
             else if (outer) { Show(item, direction.Value); FocusContent(item); }
@@ -114,31 +124,6 @@ namespace DockPanelSuite.Wpf
                 case DockState.Top: return DockPosition.Top;
                 case DockState.Bottom: return DockPosition.Bottom;
                 default: return DockPosition.Center;
-            }
-        }
-
-        private Rect OuterPreviewBounds(DockState state)
-        {
-            var views = _tabs.Values.Where(tab => Equals(tab.Tag, state)).ToArray();
-            if (views.Length > 0)
-            {
-                var bounds = ViewBounds(views[0]);
-                foreach (var view in views.Skip(1)) bounds.Union(ViewBounds(view));
-                return bounds;
-            }
-            double width = _grid.ActualWidth, height = _grid.ActualHeight;
-            double top = _grid.RowDefinitions[0].ActualHeight + _grid.RowDefinitions[1].ActualHeight;
-            double middle = _grid.RowDefinitions[2].ActualHeight;
-            switch (state)
-            {
-                case DockState.Left: return new Rect(0, top, Math.Min(_sizes.LeftWidth, width), middle);
-                case DockState.Right:
-                    double right = Math.Min(_sizes.RightWidth, width);
-                    return new Rect(width - right, top, right, middle);
-                case DockState.Top: return new Rect(0, 0, width, Math.Min(_sizes.TopHeight, height));
-                default:
-                    double bottom = Math.Min(_sizes.BottomHeight, height);
-                    return new Rect(0, height - bottom, width, bottom);
             }
         }
 

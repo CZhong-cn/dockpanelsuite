@@ -11,8 +11,10 @@ namespace DockPanelSuite.Wpf
 
         private void ApplyDefaultSizes()
         {
-            _sizes.LeftWidth = _sizes.RightWidth = Metric("Dps.DefaultToolWidth");
-            _sizes.TopHeight = _sizes.BottomHeight = Metric("Dps.DefaultToolHeight");
+            if (!_explicitRegionSizes.Contains(DockState.Left)) _sizes.LeftWidth = Metric("Dps.DefaultToolWidth");
+            if (!_explicitRegionSizes.Contains(DockState.Right)) _sizes.RightWidth = Metric("Dps.DefaultToolWidth");
+            if (!_explicitRegionSizes.Contains(DockState.Top)) _sizes.TopHeight = Metric("Dps.DefaultToolHeight");
+            if (!_explicitRegionSizes.Contains(DockState.Bottom)) _sizes.BottomHeight = Metric("Dps.DefaultToolHeight");
         }
     }
 }

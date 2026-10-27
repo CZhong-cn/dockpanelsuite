@@ -31,6 +31,7 @@ namespace DockPanelSuite.Wpf
         public DockWorkspace()
         {
             Items = new ReadOnlyObservableCollection<DockItem>(_items);
+            RegionOrder = _regionOrder.AsReadOnly();
             InitializeInteraction();
             Loaded += (sender, args) => Render();
             Unloaded += (sender, args) => { ClearDropPreview(); DismissAutoHide(); CloseFloatingWindows(); };
@@ -38,17 +39,22 @@ namespace DockPanelSuite.Wpf
         }
 
         public ReadOnlyObservableCollection<DockItem> Items { get; }
+        /// <summary>Tool regions in their first-use order, from outermost to innermost.</summary>
+        public ReadOnlyCollection<DockState> RegionOrder { get; }
         public DockItem ActiveItem { get; private set; }
         public event EventHandler ActiveItemChanged;
         public event EventHandler<DockItemClosingEventArgs> ItemClosing;
         public event EventHandler LayoutChanged;
 
-        public void Add(DockItem item, DockState state = DockState.Document)
+        public void Add(DockItem item, DockState state = DockState.Document) => AddCore(item, state, null);
+
+        private void AddCore(DockItem item, DockState state, GridLength? initialSize)
         {
             Dispatcher.VerifyAccess();
             if (item == null) throw new ArgumentNullException(nameof(item));
             ValidateState(state);
-            if (state == DockState.AutoHide && !IsEdge(item.LastDockState))
+            VerifyPlacementAllowed(item, state);
+            if (state == DockState.AutoHide && !Docked(item.LastDockState))
                 throw new ArgumentException("Auto-hide requires a tool-pane edge.", nameof(state));
             if (item.Owner != null || _items.Any(other => other.Id == item.Id))
                 throw new ArgumentException("The item is already owned or its ID is duplicated.", nameof(item));
@@ -62,16 +68,20 @@ namespace DockPanelSuite.Wpf
             presenter.PreviewMouseDown += (sender, args) => ActivateFromContent(item);
             _presenters.Add(item, presenter);
             _items.Add(item);
-            Show(item, state);
+            ShowCore(item, state, initialSize);
         }
 
-        public void Show(DockItem item, DockState state)
+        public void Show(DockItem item, DockState state) => ShowCore(item, state, null);
+
+        private void ShowCore(DockItem item, DockState state, GridLength? initialSize)
         {
             RequireItem(item);
             ValidateState(state);
-            if (state == DockState.AutoHide && !IsEdge(item.LastDockState))
+            VerifyPlacementAllowed(item, state);
+            if (state == DockState.AutoHide && !Docked(item.LastDockState))
                 throw new ArgumentException("Auto-hide requires a tool pane with a dock edge.", nameof(state));
             CaptureGeometry();
+            if (initialSize.HasValue) SetInitialRegionSize(state, initialSize.Value);
             if (_autoHideItem == item || (state != DockState.Hidden && state != DockState.AutoHide)) _autoHideItem = null;
             foreach (var selection in _selected.Where(pair => pair.Value == item.Id && pair.Key != state).ToArray())
                 _selected.Remove(selection.Key);
@@ -126,6 +136,7 @@ namespace DockPanelSuite.Wpf
             var layout = new DockLayout
             {
                 ActiveId = ActiveItem?.Id,
+                RegionOrder = _regionOrder.ToList(),
                 Regions = _roots.Select(pair => new DockRegionLayout { State = pair.Key, Root = pair.Value }).ToList(),
                 LeftWidth = _sizes.LeftWidth, RightWidth = _sizes.RightWidth,
                 TopHeight = _sizes.TopHeight, BottomHeight = _sizes.BottomHeight,
@@ -134,6 +145,7 @@ namespace DockPanelSuite.Wpf
                 Items = _items.Select(item => new DockPlacement
                 {
                     Id = item.Id, State = item.State, LastDockState = item.LastDockState,
+                    AutoHideEdge = item.DocumentAutoHideEdge,
                     X = item.FloatingBounds.X, Y = item.FloatingBounds.Y,
                     Width = item.FloatingBounds.Width, Height = item.FloatingBounds.Height
                 }).ToList()
@@ -150,7 +162,7 @@ namespace DockPanelSuite.Wpf
             { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, CloseInput = false, MaxCharactersInDocument = 1000000 }))
                 layout = (DockLayout)new XmlSerializer(typeof(DockLayout)).Deserialize(reader);
             // Validate the entire snapshot before modifying the live UI.
-            if ((layout.Version != 1 && layout.Version != 2 && layout.Version != 3) || layout.Items == null || layout.SelectedIds == null)
+            if ((layout.Version < 1 || layout.Version > 5) || layout.Items == null || layout.SelectedIds == null)
                 throw new InvalidDataException("Unsupported or incomplete layout.");
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var entry in layout.Items)
@@ -159,18 +171,27 @@ namespace DockPanelSuite.Wpf
                     throw new InvalidDataException("Missing or duplicate item identity.");
                 ValidateState(entry.State);
                 ValidateState(entry.LastDockState);
+                if (!IsEdge(entry.AutoHideEdge)) throw new InvalidDataException("Invalid auto-hide edge.");
                 if (entry.LastDockState == DockState.Float || entry.LastDockState == DockState.Hidden || entry.LastDockState == DockState.AutoHide)
                     throw new InvalidDataException("Invalid previous dock state.");
-                if (entry.State == DockState.AutoHide && !IsEdge(entry.LastDockState))
+                if (entry.State == DockState.AutoHide && (!Docked(entry.LastDockState) || !IsEdge(entry.AutoHideEdge)))
                     throw new InvalidDataException("Auto-hide requires a dock edge.");
                 ValidateBounds(entry.X, entry.Y, entry.Width, entry.Height);
             }
             foreach (var size in new[] { layout.LeftWidth, layout.RightWidth, layout.TopHeight, layout.BottomHeight })
                 if (!Finite(size) || size < 40 || size > 10000) throw new InvalidDataException("Invalid pane size.");
             ValidateLayoutTrees(layout);
+            ValidateRegionOrder(layout);
+            foreach (var entry in layout.Items)
+            {
+                var item = _items.FirstOrDefault(candidate => candidate.Id == entry.Id);
+                if (item != null && (!AllowsPlacement(item, entry.State) || !AllowsPlacement(item, entry.LastDockState)))
+                    throw new InvalidDataException("Layout violates the pane docking policy: " + entry.Id);
+            }
             CloseFloatingWindows();
             _autoHideItem = null;
             _initialSizingApplied = true;
+            ClearInitialRegionSizes();
             _sizes = layout;
             _selected.Clear();
             // Unknown IDs are ignored; registered content omitted from a full snapshot is hidden.
@@ -181,12 +202,14 @@ namespace DockPanelSuite.Wpf
                 if (entry != null)
                 {
                     item.LastDockState = entry.LastDockState;
+                    item.DocumentAutoHideEdge = entry.AutoHideEdge;
                     item.FloatingBounds = new Rect(entry.X, entry.Y, entry.Width, entry.Height);
                 }
             }
             var order = layout.Items.Select(entry => _items.FirstOrDefault(item => item.Id == entry.Id)).Where(item => item != null).ToList();
             order.AddRange(_items.Where(item => !order.Contains(item)).ToArray());
             for (int index = 0; index < order.Count; index++) _items.Move(_items.IndexOf(order[index]), index);
+            RestoreRegionOrder(layout);
             RestoreLayoutTrees(layout);
             SetActiveItem(_items.FirstOrDefault(item => item.Id == layout.ActiveId && item.State != DockState.Hidden && item.State != DockState.AutoHide));
             if (ActiveItem != null) SelectInGroup(ActiveItem);
@@ -237,6 +260,8 @@ namespace DockPanelSuite.Wpf
             _rendering = true;
             try
             {
+                EndFloatingDrag(null);
+                ApplyPendingRegionProportions();
                 DetachFlyout();
                 // Detach the reusable presenters before moving them between logical parents.
                 foreach (var tab in _tabs.Values)
@@ -263,15 +288,9 @@ namespace DockPanelSuite.Wpf
                     _grid.RowDefinitions.Add(new RowDefinition { Height = height < 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(height) });
                 _grid.ColumnDefinitions[2].SetResourceReference(ColumnDefinition.MinWidthProperty, "Dps.DocumentMinWidth");
                 _grid.RowDefinitions[2].SetResourceReference(RowDefinition.MinHeightProperty, "Dps.DocumentMinHeight");
-                AddZone(DockState.Document, 2, 2);
-                AddZone(DockState.Left, 2, 0);
-                AddZone(DockState.Right, 2, 4);
-                AddZone(DockState.Top, 0, 0, 5);
-                AddZone(DockState.Bottom, 4, 0, 5);
-                AddSplitter(DockState.Left, 2, 1, false);
-                AddSplitter(DockState.Right, 2, 3, false);
-                AddSplitter(DockState.Top, 1, 0, true);
-                AddSplitter(DockState.Bottom, 3, 0, true);
+                var areas = RegionAreas();
+                foreach (var region in areas) AddZone(region.Key, region.Value);
+                foreach (var state in LegacyRegionOrder) AddSplitter(state, areas[state]);
                 _grid.PreviewDrop += OnDrop;
                 _grid.PreviewDragEnter += OnDragOver;
                 _grid.PreviewDragOver += OnDragOver;
@@ -284,8 +303,11 @@ namespace DockPanelSuite.Wpf
             finally { _rendering = false; }
         }
 
-        private void AddSplitter(DockState state, int row, int column, bool horizontal)
+        private void AddSplitter(DockState state, RegionArea area)
         {
+            bool horizontal = state == DockState.Top || state == DockState.Bottom;
+            int row = horizontal ? (state == DockState.Top ? 1 : 3) : area.Row;
+            int column = horizontal ? area.Column : (state == DockState.Left ? 1 : 3);
             bool visible = _items.Any(item => item.State == state);
             if (horizontal)
             {
@@ -305,12 +327,13 @@ namespace DockPanelSuite.Wpf
             splitter.SetResourceReference(StyleProperty, "Dps.Splitter");
             System.Windows.Automation.AutomationProperties.SetName(splitter, RegionName(state));
             splitter.DragCompleted += (sender, args) => { CaptureGeometry(); LayoutChanged?.Invoke(this, EventArgs.Empty); };
-            Place(splitter, row, column, horizontal ? 5 : 1);
+            Place(splitter, new RegionArea { Row = row, Column = column, RowSpan = area.RowSpan, ColumnSpan = area.ColumnSpan });
         }
 
-        private void Place(UIElement element, int row, int column, int span)
+        private void Place(UIElement element, RegionArea area)
         {
-            Grid.SetRow(element, row); Grid.SetColumn(element, column); Grid.SetColumnSpan(element, span);
+            Grid.SetRow(element, area.Row); Grid.SetColumn(element, area.Column);
+            Grid.SetRowSpan(element, area.RowSpan); Grid.SetColumnSpan(element, area.ColumnSpan);
             _grid.Children.Add(element);
         }
 
@@ -336,7 +359,7 @@ namespace DockPanelSuite.Wpf
                 var bounds = item.FloatingBounds;
                 // Keep restored windows reachable when a monitor has been removed.
                 var area = SystemParameters.WorkArea;
-                window = new Window
+                window = new DockFloatingWindow(item)
                 {
                     Left = Math.Max(area.Left, Math.Min(bounds.X, area.Right - Metric("Dps.FloatingMinWidth"))),
                     Top = Math.Max(area.Top, Math.Min(bounds.Y, area.Bottom - Metric("Dps.FloatingMinHeight"))),

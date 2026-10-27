@@ -16,13 +16,15 @@ namespace DockPanelSuite.Wpf
         public void AutoHideGroup(DockItem item)
         {
             RequireItem(item);
-            if (!IsEdge(item.State)) throw new ArgumentException("The item must be a docked tool pane.", nameof(item));
+            if (!Docked(item.State)) throw new ArgumentException("The item must be docked.", nameof(item));
+            if (!CanAutoHideGroup(item)) throw new InvalidOperationException("A tab in this group does not allow auto-hide.");
             CaptureGeometry();
             var group = FindGroup(item);
             var members = GroupItems(group).Where(candidate => candidate.State == item.State).ToArray();
             foreach (var member in members)
             {
                 foreach (var pair in _selected.Where(pair => pair.Value == member.Id).ToArray()) _selected.Remove(pair.Key);
+                member.DocumentAutoHideEdge = item.DocumentAutoHideEdge;
                 member.SetState(DockState.AutoHide);
             }
             group.SelectedId = item.Id;
@@ -39,7 +41,8 @@ namespace DockPanelSuite.Wpf
             if (item.State != DockState.AutoHide) throw new ArgumentException("The item must be auto-hidden.", nameof(item));
             CaptureGeometry();
             var group = FindGroup(item);
-            var members = GroupItems(group).Where(candidate => candidate.State == DockState.AutoHide && candidate.LastDockState == item.LastDockState).ToArray();
+            var members = GroupItems(group).Where(candidate => candidate.State == DockState.AutoHide && candidate.LastDockState == item.LastDockState && candidate.AutoHideEdge == item.AutoHideEdge).ToArray();
+            foreach (var member in members) VerifyPlacementAllowed(member, member.LastDockState);
             foreach (var member in members) member.SetState(member.LastDockState);
             group.SelectedId = item.Id;
             _selected[item.State] = item.Id;
@@ -54,7 +57,7 @@ namespace DockPanelSuite.Wpf
         private void ToggleGroupPin(DockItem item)
         {
             if (item.State == DockState.AutoHide) PinGroup(item);
-            else if (IsEdge(item.State)) AutoHideGroup(item);
+            else if (Docked(item.State)) AutoHideGroup(item);
             else AutoHide(item);
         }
 
@@ -103,8 +106,9 @@ namespace DockPanelSuite.Wpf
 
         private void AddRail(DockState edge, int row, int column)
         {
-            if (!_roots.TryGetValue(edge, out var root)) return;
-            var groups = Groups(root).Select(group => GroupItems(group).Where(item => item.State == DockState.AutoHide && item.LastDockState == edge).ToArray()).Where(items => items.Length > 0).ToArray();
+            var groups = _roots.Values.SelectMany(Groups).Select(group => GroupItems(group)
+                .Where(item => item.State == DockState.AutoHide && item.AutoHideEdge == edge).ToArray())
+                .Where(items => items.Length > 0).ToArray();
             if (groups.Length == 0) return;
             var rail = new StackPanel();
             DockChrome.SetEdge(rail, edge);
@@ -134,10 +138,10 @@ namespace DockPanelSuite.Wpf
         private void BuildFlyout(DockItem item)
         {
             var group = FindGroup(item);
-            var items = GroupItems(group).Where(candidate => candidate.State == DockState.AutoHide && candidate.LastDockState == item.LastDockState).ToList();
+            var items = GroupItems(group).Where(candidate => candidate.State == DockState.AutoHide && candidate.LastDockState == item.LastDockState && candidate.AutoHideEdge == item.AutoHideEdge).ToList();
             _flyoutTabs = CreateTabs(group, DockState.AutoHide, items, true);
             _flyout = new Border { Child = _flyoutTabs };
-            var edge = item.LastDockState;
+            var edge = item.AutoHideEdge;
             DockChrome.SetEdge(_flyout, edge);
             _flyout.SetResourceReference(StyleProperty, "Dps.AutoHideFlyout");
             if (edge == DockState.Left || edge == DockState.Right) _flyout.Width = Math.Max(Metric("Dps.FlyoutMinWidth"), edge == DockState.Left ? _sizes.LeftWidth : _sizes.RightWidth);

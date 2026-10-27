@@ -122,6 +122,8 @@ namespace DockPanelSuite.Wpf.Sample
                     window.Workspace.PinGroup(groupedSolution);
                     if (groupedOutput.State != DockState.Right || groupedSolution.State != DockState.Right)
                         throw new InvalidOperationException("Tool group did not pin together.");
+                    CaptureOuterRegionLayout(window, directory, true);
+                    CaptureOuterRegionLayout(window, directory, false);
                     window.Close();
                 }
                 catch (Exception error)
@@ -133,6 +135,45 @@ namespace DockPanelSuite.Wpf.Sample
             }));
         }
 
+        private static void CaptureOuterRegionLayout(Window owner, string directory, bool leftFirst)
+        {
+            Func<bool, DockWorkspace> create = firstLeft =>
+            {
+                var workspace = new DockWorkspace { Theme = DockTheme.GreenDark };
+                Func<string, string, DockItem> item = (id, title) =>
+                {
+                    var content = new TextBox { Text = title + "\n\n区域按首次 Add 的顺序，从外向内占用剩余空间。", IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
+                    content.SetResourceReference(FrameworkElement.StyleProperty, "Dps.TextBox");
+                    return new DockItem(id, title, content);
+                };
+                workspace.Add(item("order-document", "检测文档"));
+                if (firstLeft) workspace.Add(item("order-left", "项目资源"), DockState.Left);
+                workspace.Add(item("order-bottom", "输出"), DockState.Bottom);
+                if (!firstLeft) workspace.Add(item("order-left", "项目资源"), DockState.Left);
+                return workspace;
+            };
+            var source = create(leftFirst);
+            var restored = create(!leftFirst);
+            string name = "wpf-region-order-" + (leftFirst ? "left-bottom" : "bottom-left");
+            using (var snapshot = new MemoryStream())
+            {
+                source.SaveLayout(snapshot);
+                File.WriteAllBytes(Path.Combine(directory, name + ".xml"), snapshot.ToArray());
+                snapshot.Position = 0; restored.LoadLayout(snapshot);
+            }
+            var preview = new Window { Owner = owner, Content = restored, Width = 1000, Height = 680,
+                ShowInTaskbar = false, Title = leftFirst ? "Left → Bottom" : "Bottom → Left" };
+            try
+            {
+                preview.Show(); preview.UpdateLayout();
+                var left = restored.GroupBounds(restored.Items.Single(item => item.Id == "order-left"));
+                var bottom = restored.GroupBounds(restored.Items.Single(item => item.Id == "order-bottom"));
+                if (leftFirst ? bottom.Left <= left.Left || left.Bottom <= bottom.Top : bottom.Left >= left.Right || bottom.Top <= left.Top)
+                    throw new InvalidOperationException("Outer dock-region order did not survive restoration.");
+                Capture(preview, Path.Combine(directory, name + ".png"));
+            }
+            finally { preview.Content = null; preview.Close(); }
+        }
         private static void CaptureDockGuides(MainWindow window, DockItem item, DockTheme theme, DockState state, string path, DockItem target = null)
         {
             window.SetTheme(theme);

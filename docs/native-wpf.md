@@ -11,14 +11,14 @@ WinForms core and all themes continue to retain the existing targets. WPF uses
 | Docking | Recursive horizontal/vertical splits and tab groups inside the document area and all four tool-pane regions |
 | Drag/drop | Visual Studio-style central and outer docking guides, hover highlight, translucent preview and shared final-drop hit testing |
 | Tab order | Drop a title before another title, including across dock regions |
-| Floating | Owned native WPF windows; double-click a title to float or redock |
+| Floating | Owned native WPF windows; drag their custom title to move or dock, double-click a title to float or redock |
 | Tool groups | Shared top caption, bottom tabs, group pin/unpin and single-tab close |
 | Auto-hide | Four edge rails, grouped click-to-open flyouts, click-outside or Escape dismissal |
 | Themes | Live light/dark palettes, themed docking chrome, opt-in content styles |
 | Active pane | Focused document tabs and tool captions use a distinct highlight; other groups retain a muted selected tab |
 | Keyboard | Ctrl+Tab / Ctrl+Shift+Tab cycles visible documents; Ctrl+F4 closes the active item; Ctrl+W is opt-in via `IsCtrlWEnabled` |
 | Application integration | `ActiveItemChanged`, cancelable `ItemClosing`, content preserved while moving |
-| Persistence | Version 3 XML stores split trees, ratios, per-group tab order and selections, pane state, floating bounds and active item; versions 1 and 2 remain readable |
+| Persistence | Version 5 XML also stores outer region order; split trees, ratios, tab order/selections, pane state, floating bounds and active item are retained; versions 1–4 remain readable |
 
 The sample is a Chinese industrial-vision-style workbench: native vector preview,
 editable JSON document, project tree, properties, output, and auto-hidden history.
@@ -55,12 +55,68 @@ Workspace.Hide(editor);             // checks CanClose and ItemClosing
 Workspace.Show(editor);             // returns to its last dock region
 ```
 
-`AutoHide(item, edge)` assigns an explicit tool edge. `AutoHide(item)` requires
-an existing tool edge; documents cannot auto-hide without choosing an edge.
+`AutoHide(item, edge)` assigns an explicit tool edge. With `AutoHide(item)`, tool
+panes retain their previous edge; documents use the bottom rail and return to
+their original document group when pinned. `DockItem.AutoHideEdge` exposes the
+rail used by each pane. `CanAutoHide` and `CanDockToSides` restrict both API calls
+and drag/menu targets; layout restoration also checks these runtime policies.
 `MoveBefore(item, before)` reorders tabs and moves the item into `before`'s group
 when both items share a region. A title-to-title drop can also merge and reorder
 across regions.
 
+Floating panes can be moved by dragging their custom title, including when
+`ShowCloseButton` hides the native caption. The title captures the pointer so
+movement continues outside the window. Releasing on a permitted docking guide or
+a pane title redocks; releasing elsewhere keeps the pane floating. Escape cancels
+the move and restores the original position. Pin/close buttons remain interactive,
+and pane docking restrictions still apply.
+
+## Initial edge-region sizes
+
+`Add` has two sizing overloads. An `int` sets an initial width for Left/Right or
+height for Top/Bottom in WPF DIPs; a `float` sets a fraction of the docking surface's
+full width or height. Use the `f` suffix to select the proportion overload:
+
+```csharp
+Workspace.Add(left, DockState.Left, size: 300);
+Workspace.Add(output, DockState.Bottom, proportion: 0.28f);
+Workspace.Add(right, DockState.Right, 0); // same default sizing as Add(right, Right)
+```
+
+Both `0` and `0f` keep default sizing, including local `Dps.DefaultToolWidth` and
+`Dps.DefaultToolHeight` resource overrides. Nonzero values require one of the four
+edge states. Sizes range from 1 to 10000; proportions range from 0.05 to 0.95.
+Existing layout/theme minimums can increase the requested size. Document panes
+fill the remaining space; use `Dock(item, target, position, proportion)` to set a
+split between groups within a region. Floating bounds use `Float(item, Rect)`.
+
+An edge is shared by all its panes: the last nonzero sizing request on that edge
+wins, while an unsized or zero-valued addition keeps the current request. Ratios
+are resolved once when the surface is laid out; they do not keep resizing the edge
+when the host window changes. Explicit sizes survive the first-load resource
+initialization. `LoadLayout` overrides these initial requests, and `SaveLayout`
+persists the resulting dimensions after layout.
+
+## Outer dock-region order
+
+Tool regions consume space from the outside in, in the order they are first used.
+`Add(left, DockState.Left)` followed by `Add(output, DockState.Bottom)` gives the
+left region the full workspace height and places the bottom region in the space
+to its right. Reversing those calls gives the bottom region the full workspace
+width and places the left region above it. The document area fills what remains.
+All four edges follow this rule; splits and tab groups inside a region are retained.
+
+`Workspace.RegionOrder` exposes this order as a read-only collection. Adding
+another tab to an existing region, hiding/removing its last pane, auto-hiding,
+floating and pinning preserve the region's priority. An edge first used later is
+appended after the previously used regions. Outer guide previews account for this
+order and for space released when moving the last pane out of another region.
+
+`DockLayout.RegionOrder` persists the order in version 5 snapshots. Restoration
+uses the saved order even when application items are registered in a different
+sequence. Missing, duplicate or non-edge entries are rejected before changing the
+live layout. Versions 1–4 migrate with the original `Top, Bottom, Left, Right`
+priority, so existing saved layouts keep their original corner ownership.
 ## Ctrl+W close shortcut
 
 `DockWorkspace.IsCtrlWEnabled` is a Boolean dependency property and defaults to
@@ -187,7 +243,7 @@ Theme resources are split by purpose:
 | `Light.xaml` | Light palette with the same resource keys |
 | `GreenDark.xaml` | MasterGo-inspired neutral charcoal palette with emerald accents |
 | `Headers.xaml` | `Dps.DockItemHeader` template, title spacing/width, pin geometry and button order |
-| `Metrics.xaml` | Fonts, pane/window minimums, splitter thickness, preview inset, initial tool sizes and guide layout parameters |
+| `Metrics.xaml` | Fonts, pane/window minimums, splitter thickness/hit margins, preview inset, initial tool sizes and guide layout parameters |
 | `Chrome.xaml` | Workspace, buttons, rails, flyouts, floating frames/windows and drop-preview styles |
 | `Guides.xaml` | Guide plate and tile templates, arrow geometry, shadow, padding and highlighted states |
 | `Controls.xaml` | Shared document/tool tab templates, splitters, menus, trees and scrollbars |
@@ -265,7 +321,7 @@ placed alongside the header overrides above:
 ```xml
 <sys:Double x:Key="Dps.FontSize">13</sys:Double>
 <FontFamily x:Key="Dps.FontFamily">Segoe UI</FontFamily>
-<GridLength x:Key="Dps.SplitterLength">8</GridLength>
+<GridLength x:Key="Dps.SplitterLength">2</GridLength>
 <sys:Double x:Key="Dps.PaneMinWidth">96</sys:Double>
 <sys:Double x:Key="Dps.PaneMinHeight">72</sys:Double>
 <Thickness x:Key="Dps.DropPreviewInset">3</Thickness>
@@ -281,6 +337,16 @@ minimum expansion size, still clamped to the host. `Dps.DefaultToolWidth` /
 `Dps.DefaultToolHeight` are applied at initial load and never replace restored
 layout sizes. The layout protocol retains its validation limits, including
 floating bounds of at least 100 by 80 and saved tool sizes of at least 40 DIPs.
+
+The default splitter occupies and paints 2 DIPs. Negative margins extend its
+transparent hit area by 3 DIPs on each side, for an 8-DIP pointer target. Configure
+`Dps.SplitterVerticalMargin` (`-3,0,-3,0`) and `Dps.SplitterHorizontalMargin`
+(`0,-3,0,-3`) in `Metrics.xaml`; the corresponding `VerticalInset` / `HorizontalInset`
+keys use the opposite positive values so only the center line is painted.
+`Dps.Splitter` is drawn above adjacent panes so the expanded hit area remains
+reachable. `Dps.SplitterPreview` uses the same insets during drag preview, keeping
+the ghost line at 2 DIPs. Layout tracks and docking previews use `Dps.SplitterLength`
+rather than the expanded pointer target. Outer and nested splitters share this style.
 
 Rail spacing, rotation and group corners are defined by `Dps.RailButton`,
 `Dps.RailPanel` and `Dps.RailGroup` in `Chrome.xaml`. `DockChrome.Edge` exposes the
@@ -327,7 +393,8 @@ The same active colors apply to tool captions, their bottom tabs, auto-hide
 flyouts and floating headers. Customize `Dps.ActiveTabBackground`,
 `Dps.ActiveTabForeground`, `Dps.ActiveTabBorder`, `Dps.InactiveTabBackground`,
 `Dps.InactiveTabForeground` and `Dps.InactiveTabBorder` in each palette XAML or
-in workspace resources. Custom header templates can bind to `Item.IsActive`.
+in workspace resources. Custom header templates can bind to `Item.IsActive`. Document tabs use `Padding="4,2"`
+and tool tabs use `Padding="2,0"` in `Controls.xaml` for a more compact strip.
 
 Palette brush keys: `Dps.Background`, `Dps.Surface`, `Dps.Header`, `Dps.Foreground`,
 `Dps.Muted`, `Dps.Border`, `Dps.Hover`, `Dps.Accent`, `Dps.Selected`, `Dps.Preview`,
@@ -351,8 +418,9 @@ Invalid snapshots are validated before live states change. Caller streams stay
 open. Auto-hide flyouts restore collapsed, and the most recent active visible
 pane is restored. Theme is an application preference outside the layout snapshot.
 
-WPF XML is independent of WinForms XML. Version 3 readers migrate version 1/2
-snapshots into one group per region. Older readers cannot read version 3 trees. The sample's reset
+WPF XML is independent of WinForms XML. Version 5 readers accept versions 1–4;
+versions 1/2 migrate into one group per region. Readers older than version 5
+cannot read version 5 snapshots. The sample's reset
 button restores its initial snapshot, including tab order and tool placement;
 new documents are retained as hidden items and can be found through the pane menu.
 
@@ -389,7 +457,8 @@ The sample's `--smoke` path produces `wpf-sample-light.png`,
 `wpf-sample-greendark.png`, `wpf-docking-guides-greendark.png`,
 `wpf-tool-group-greendark.png`, `wpf-tool-group-flyout-greendark.png`,
 `wpf-active-pane-light.png`, `wpf-active-pane-dark.png`,
-`wpf-active-pane-greendark.png`, and the compatibility filename
+`wpf-active-pane-greendark.png`, `wpf-region-order-left-bottom.png`,
+`wpf-region-order-bottom-left.png`, and the compatibility filename
 `wpf-sample.png`. Screenshots capture the client content using its current DPI.
 The smoke path checks that the normal preview fits, and that the minimum-size
 preview scrolls to its measurement cards. It also checks group auto-hide, snapshot
@@ -406,20 +475,28 @@ dotnet test WpfLogicTests/WpfLogicTests.csproj -c Release
 
 CI has a separate Ubuntu job for these tests.
 
-## Windows verification (2026-10-26)
+## Windows verification (2026-10-27)
 
 | Check | Result |
 | --- | --- |
-| Native WPF regressions, .NET Framework 4.8 | 139 passed |
-| Native WPF regressions, .NET 6 | 139 passed |
-| Native WPF regressions, .NET Core 3.1 | 139 passed |
+| Native WPF regressions, .NET Framework 4.8 | 252 passed |
+| Native WPF regressions, .NET 6 | 252 passed |
+| Native WPF regressions, .NET Core 3.1 | 252 passed |
 | Shared drop-target geometry, .NET 6 | 53 passed |
-| Sample build and smoke, all three desktop runtimes | Passed; twenty-two screenshots per runtime |
+| Sample build and smoke, all three desktop runtimes | Passed; twenty-four screenshots per runtime |
 | WPF NuGet package | Contains assemblies for all three target frameworks |
 
 Verification used the installed SDK 9.0.316 through its explicit CLI entry point.
 The WPF target frameworks are .NET Framework 4.8, .NET Core 3.1 and .NET 6. Test reports
 and screenshots are under the ignored `artifacts/` directory.
+
+Outer-region regressions cover all 24 edge permutations, corner ownership,
+splitter spans and keyboard resizing, reversed registration order on restoration,
+nested groups and sizes, hidden/floating/auto-hide transitions, empty regions,
+version 1–4 migration, malformed order rejection without closing live floating
+windows, and outer preview/drop agreement including a released source region.
+The two outer-region smoke images restore snapshots into workspaces whose items
+were registered in the reverse order.
 
 Regressions cover the latest floating bounds after a user close, focus transfer
 between floating and docked content, document focus after dismissing an auto-hide
